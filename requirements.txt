@@ -1,0 +1,6 @@
+mcp
+notion-client
+python-dotenv
+starlette<0.47.0
+
+
