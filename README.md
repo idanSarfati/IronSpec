@@ -1,96 +1,107 @@
-# Founder OS (Alpha v0.1)
+# 🚀 Founder OS (Alpha v0.1)
 
-**Founder OS** is an intelligent context bridge that connects your development environment (Cursor) directly to your knowledge base (Notion) and data layer (Supabase). It prevents context switching by giving your AI agent real-time access to specs, roadmaps, and architectural rules.
+Founder OS is an intelligent context bridge that connects your development environment (Cursor) directly to your "Source of Truth" (Notion) and data layer (Supabase).
 
----
-
-## 🛠 Prerequisites
-
-Before running the system, ensure you have:
-
-1.  **Python 3.10+** installed.
-2.  **Notion Integration Token:**
-    * Create an internal integration at [Notion My Integrations](https://www.notion.so/my-integrations).
-    * Share your target pages (Roadmap, Architecture) with this integration connection.
-3.  **Supabase Project:**
-    * You will need your project URL and `service_role` (or `anon`) key.
-4.  **Clerk Account:**
-    * For authentication services (Publishable Key & Secret Key).
+It eliminates context switching by granting your AI agent real-time access to technical specifications, roadmaps, and architectural governance. With Founder OS, the AI doesn't just write code—it follows your project's "Constitution."
 
 ---
 
-## 📦 Installation
+## ⚡ Quick Start (One-Click Installation)
 
-1.  **Clone the Repository**
-    ```bash
-    git clone [https://github.com/your-org/founder-os.git](https://github.com/your-org/founder-os.git)
-    cd founder-os
-    ```
+We have automated the setup process. No manual JSON editing or path configuration is required.
 
-2.  **Install Dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
+### 1. Clone the Repository
 
-3.  **Configure Environment**
-    We have included a setup utility to generate your configuration safely. Run:
-    ```bash
-    python -m config.setup_auth
-    ```
-    * This will check for a `.env` file.
-    * It will verify if all required keys (`NOTION_API_KEY`, `SUPABASE_URL`, etc.) are present.
-    * If missing, it will add placeholders for you to fill in.
+```bash
+git clone https://github.com/your-org/founder-os.git
+cd founder-os
+```
 
-4.  **Verify Configuration**
-    Open `.env` and confirm all values are filled in.
+### 2. Run the Installer
+
+Execute the master installation script and follow the prompts:
+
+```bash
+python install_script.py
+```
+
+**What the installer handles for you:**
+
+- ✅ **Dependencies:** Installs all required Python libraries.
+- 🔑 **Authentication:** Safely captures your Notion Token and generates your `.env` file.
+- 🔌 **Auto-Injection:** Automatically detects your Cursor configuration folder (`.cursor/mcp.json`) and registers the server.
+
+### 3. Final Step: Refresh Cursor
+
+1. Open Cursor.
+2. Press `Ctrl+Shift+P` (Windows) or `Cmd+Shift+P` (Mac).
+3. Type "Developer: Reload Window" and press Enter.
 
 ---
 
-## 🖱️ Cursor MCP Configuration
+## ✅ Installation Verification
 
-To enable the AI "Brain," you must register the MCP server in Cursor.
+To ensure everything is connected correctly:
 
-1.  Open **Cursor Settings** (`Cmd/Ctrl` + `Shift` + `J`).
-2.  Navigate to **Features** > **MCP Servers**.
-3.  Click **+ Add New MCP Server**.
-4.  Enter the following details:
+1. Go to **Cursor Settings** (`Ctrl+Shift+J`).
+2. Navigate to **Features > MCP Servers**.
+3. You should see `founder-os` with a **Green Light** 🟢.
+4. If the light is red, click the "Refresh" icon or check the logs in the **Output** panel (select "MCP" from the dropdown).
 
-| Field | Value |
+---
+
+## 🧠 Activating the AI Architect
+
+Whenever you start a new project or a new coding session, open the Composer (`Cmd/Ctrl + I`) and type:
+
+```
+"Initialize Founder OS"
+```
+
+**How it works:**
+
+The agent will execute the `bootstrap_project` tool, injecting a local `.cursorrules` file into your folder. From that moment, the AI will enforce your architecture constraints (e.g., "Do not use SQLite," "Follow Clean Architecture") and will refuse to implement code that violates these rules.
+
+---
+
+## 🛠 Core Features (MCP Tools)
+
+| Tool | Capability |
 | :--- | :--- |
-| **Name** | `founder-os` |
-| **Type** | `stdio` |
-| **Command** | `python` |
-| **Arguments** | `[ABSOLUTE_PATH_TO_REPO]/server.py` |
-
-> **Note:** Replace `[ABSOLUTE_PATH_TO_REPO]` with the full path to your cloned folder (e.g., `/Users/idan/projects/founder-os/server.py`).
+| `search_notion` | Scans your Notion workspace for PRDs, Specs, and Tasks. |
+| `fetch_project_context` | Reads full page content to feed the AI deep project knowledge. |
+| `append_to_page` | Allows the AI to document progress or update logs in Notion. |
+| `list_directory` | Scans local files to prevent duplicate code and maintain structure. |
+| `bootstrap_project` | Deploys the project "Brain" (`.cursorrules`) to any directory. |
 
 ---
 
-## ✅ Verification
+## 📋 Prerequisites
 
-Before asking the AI to write code, verify your "Engine Room" is connected.
+- **Python 3.10+**
+- **Notion Integration:**
+  - Create an internal integration at [Notion My Integrations](https://www.notion.so/my-integrations).
+  - **Grant Access:** You MUST share each specific Notion page with your integration. On the target page: Click `...` -> `Connections` -> `Connect to` -> Select **Founder OS**.
+- **Supabase:** URL and API Key (Optional for early alpha).
 
-1.  **Run the Smoke Test:**
-    Open your terminal and run:
-    ```bash
-    python -m src.tools.verify_db
-    ```
-    * **Success:** You should see `✅ Connection Successful`.
-    * **Failure:** If it fails, check your `.env` keys.
-
-2.  **Test the Brain:**
-    * Restart Cursor.
-    * Open a new Chat (`Cmd/Ctrl` + `L`).
-    * Type: *"What is the status of the Founder OS project?"*
-    * **Success:** The AI should call `search_notion` or `list_directory` automatically.
 ---
 
-## 🔧 Troubleshooting
+## 🔍 Troubleshooting
 
-* **Error: "Notion page not found"**
-    * Ensure you have clicked `...` > `Connections` > `Connect to` on the specific Notion page and selected your integration.
-* **Error: "Conflict Protocol Triggered"**
-    * This is a feature, not a bug. If the AI refuses to write code (e.g., "I cannot use SQLite"), it means the `INSTRUCTIONS.md` or `.cursorrules` file is successfully enforcing your architecture.
-* **MCP Server Light is Red**
-    * Check the "Output" tab in Cursor and select "MCP Log" to see the Python traceback.
-    * Verify your absolute path in the MCP settings is correct.
+**Server not appearing in Settings:**
+
+- Ensure you ran `install_script.py` and performed a "Reload Window".
+
+**"Permission Denied" in Notion:**
+
+- Double-check that the specific page or database is shared with your Integration Connection.
+
+**Windows Unicode Errors:**
+
+- If you see charmap errors, ensure your terminal supports UTF-8.
+
+---
+
+## 🛡 License
+
+Internal Use Only - Founder OS Proprietary.

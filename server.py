@@ -1,10 +1,12 @@
+import os
 from mcp.server.fastmcp import FastMCP
 from config.auth_config import load_auth_config
 
 # Import modular tools
 from src.tools.notion_context import search_notion, fetch_project_context, append_to_page
 from src.tools.fs import list_directory
-from config.setup_governance import install_rules as _install_rules_logic
+# We import the RULES string, but NOT the install logic
+from config.setup_governance import GOVERNANCE_RULES
 
 # 1. Validate Auth on Startup
 try:
@@ -23,17 +25,24 @@ mcp.add_tool(fetch_project_context)
 mcp.add_tool(append_to_page)
 mcp.add_tool(list_directory)
 
-# --- NEW: The "Initialize" Tool ---
+# --- NEW: Fixed Bootstrap Tool ---
 @mcp.tool()
-def bootstrap_project() -> str:
+def bootstrap_project(target_dir: str) -> str:
     """
-    INITIALIZE COMMAND: Installs the Founder OS 'Brain' (.cursorrules) into the current project.
-    Use this when the user says 'Initialize Founder OS' or 'Setup Project'.
+    INITIALIZE COMMAND: Installs the Founder OS 'Brain' (.cursorrules) into the specified project folder.
+    The AI should provide the absolute path to the current project root.
     """
     try:
-        # We reuse the logic from our setup script
-        _install_rules_logic()
-        return "✅ Success: Founder OS 'Brain' (.cursorrules) has been installed. The strict architecture rules are now active."
+        # Clean the path
+        target_path = os.path.join(os.path.abspath(target_dir), ".cursorrules")
+        
+        if os.path.exists(target_path):
+             return f"ℹ️ Skipped: .cursorrules already exists at {target_path}"
+
+        with open(target_path, "w", encoding="utf-8") as f:
+            f.write(GOVERNANCE_RULES)
+            
+        return f"✅ Success: Founder OS 'Brain' installed at: {target_path}"
     except Exception as e:
         return f"❌ Error initializing: {str(e)}"
 

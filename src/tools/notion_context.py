@@ -59,21 +59,24 @@ def _fetch_all_blocks(block_id: str, depth: int = 0) -> List[str]:
 # --- Tools ---
 
 def search_notion(query: str) -> str:
-    """Searches Notion. Auto-falls back to recent pages if no exact match."""
-    print(f"DEBUG: Searching for '{query}'", file=sys.stderr)
+    """Enhanced search with automatic keyword simplification fallback."""
     try:
-        # 1. Primary Search
-        response = notion.search(
-            query=query, page_size=10, 
-            sort={"direction": "descending", "timestamp": "last_edited_time"}
-        )
+        # 1. Try the full query first
+        print(f"DEBUG: Attempt 1 with '{query}'", file=sys.stderr)
+        response = notion.search(query=query, page_size=5)
         items = response.get("results", [])
 
-        # 2. Fallback
-        fallback_msg = ""
-        if not items and query.strip().upper() != "ALL":
-            fallback_msg = f"No exact matches for '{query}'. Showing most recent pages:\n"
-            response = notion.search(query="", page_size=20, sort={"direction": "descending", "timestamp": "last_edited_time"})
+        # 2. If it fails, take the FIRST WORD only (The "Aggressive" Fallback)
+        if not items and " " in query:
+            simple_query = query.split(" ")[0]
+            print(f"DEBUG: Attempt 2 with '{simple_query}'", file=sys.stderr)
+            response = notion.search(query=simple_query, page_size=10)
+            items = response.get("results", [])
+
+        # 3. If still nothing, get the 10 most recent pages (The "Nuclear" Fallback)
+        if not items:
+            print("DEBUG: Final fallback - fetching recent pages", file=sys.stderr)
+            response = notion.search(query="", sort={"direction": "descending", "timestamp": "last_edited_time"}, page_size=10)
             items = response.get("results", [])
 
         results = []
@@ -81,8 +84,7 @@ def search_notion(query: str) -> str:
             title = _extract_title_from_item(item)
             results.append(f"- [{item.get('object')}] {title} (ID: {item.get('id')})")
             
-        if not results: return "No pages found."
-        return (fallback_msg or f"Found {len(results)} matches:\n") + "\n".join(results)
+        return "I couldn't find an exact match, but here are the most relevant pages:\n" + "\n".join(results)
     except Exception as e:
         return f"Search Error: {str(e)}"
 

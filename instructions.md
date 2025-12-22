@@ -1,1 +1,0 @@
-👋 Welcome to Founder OS! To activate the AI Architect, please start every new session by typing: "Initialize Founder OS
