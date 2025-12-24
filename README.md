@@ -75,6 +75,8 @@ The agent will execute the `bootstrap_project` tool, injecting a local `.cursorr
 | `append_to_page` | Allows the AI to document progress or update logs in Notion. |
 | `list_directory` | Scans local files to prevent duplicate code and maintain structure. |
 | `bootstrap_project` | Deploys the project "Brain" (`.cursorrules`) to any directory. |
+| `list_linear_tasks` | Lists all of your active Linear issues (assigned + team issues, excluding Done/Canceled). |
+| `get_linear_task_details` | Fetches rich details for a specific Linear task (e.g., `IDA-6`) for deep AI context. |
 
 ---
 
@@ -85,6 +87,21 @@ The agent will execute the `bootstrap_project` tool, injecting a local `.cursorr
   - Create an internal integration at [Notion My Integrations](https://www.notion.so/my-integrations).
   - **Grant Access:** You MUST share each specific Notion page with your integration. On the target page: Click `...` -> `Connections` -> `Connect to` -> Select **Founder OS**.
 - **Supabase:** URL and API Key (Optional for early alpha).
+- **Linear (Optional but Recommended):**
+  - Generate a personal API key in Linear.
+  - Add it to your `.env` as `LINEAR_API_KEY=lin_api_...` in the project root.
+  - When present, Founder OS will automatically enable Linear tools so the AI can see your tasks.
+
+---
+
+## 🔗 Using the Linear Integration
+
+- **List your tasks**
+  - In Cursor Composer, ask: **“List my Linear tasks”** or **“What Linear tasks do I have?”**
+  - The AI will call `list_linear_tasks` and respond with a compact list (identifier, title, team, status, priority).
+- **Drill into a specific task**
+  - Ask: **“Get details for Linear task IDA-6”** (replace with your task key).
+  - The AI will call `get_linear_task_details`, then use the title/labels/description as search terms into Notion specs before suggesting code.
 
 ---
 
