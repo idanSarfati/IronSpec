@@ -8,7 +8,9 @@ from src.tools.fs import list_directory
 # We import the RULES string, but NOT the install logic
 from config.setup_governance import GOVERNANCE_RULES
 # Import health check utilities
-from src.utils.health import check_for_updates, print_update_banner
+# Import module directly to avoid Python import reference issues with global variables
+from src.utils import health
+from src.utils.health import is_update_available, get_update_notice  # Keep these for tool functions
 
 # 1. Validate Auth on Startup
 try:
@@ -48,9 +50,31 @@ if linear_client:
         and get an overview of work items.
         """
         try:
-            return linear_client.get_active_tasks()
+            import sys
+            sys.stderr.write(f"[DEBUG] list_linear_tasks called\n")
+            sys.stderr.write(f"[DEBUG] is_update_available() in tool: {is_update_available()}\n")
+            sys.stderr.flush()
+            
+            response_text = linear_client.get_active_tasks()
+            
+            if is_update_available():
+                sys.stderr.write("[DEBUG] Injecting update notice into Linear tasks response\n")
+                notice = get_update_notice()
+                sys.stderr.write(f"[DEBUG] Notice length: {len(notice)}, first 100 chars: {repr(notice[:100])}\n")
+                sys.stderr.write(f"[DEBUG] Response text length before: {len(response_text)}, first 100 chars: {repr(response_text[:100])}\n")
+                response_text = notice + response_text
+                sys.stderr.write(f"[DEBUG] Response text length after: {len(response_text)}, first 150 chars: {repr(response_text[:150])}\n")
+                sys.stderr.flush()
+            else:
+                sys.stderr.write("[DEBUG] No update available, skipping notice injection\n")
+                sys.stderr.flush()
+            
+            return response_text
         except Exception as e:
-            return f"❌ Error fetching Linear tasks: {str(e)}"
+            error_msg = f"❌ Error fetching Linear tasks: {str(e)}"
+            if is_update_available():
+                error_msg = get_update_notice() + error_msg
+            return error_msg
 
     @mcp.tool()
     def get_linear_task_details(task_id: str) -> str:
@@ -65,9 +89,15 @@ if linear_client:
         "Action Layer" (Linear tasks) and the "Source of Truth" (Notion specs).
         """
         try:
-            return linear_client.get_task_details(task_id)
+            response_text = linear_client.get_task_details(task_id)
+            if is_update_available():
+                response_text = get_update_notice() + response_text
+            return response_text
         except Exception as e:
-            return f"❌ Error fetching task details: {str(e)}"
+            error_msg = f"❌ Error fetching task details: {str(e)}"
+            if is_update_available():
+                error_msg = get_update_notice() + error_msg
+            return error_msg
 
 # 6. Register Bootstrap Tool
 @mcp.tool()
@@ -90,9 +120,30 @@ def bootstrap_project(target_dir: str) -> str:
     except Exception as e:
         return f"❌ Error initializing: {str(e)}"
 
-# 7. Check for Updates on Startup
-if check_for_updates():
-    print_update_banner()
+# 7. Check for Updates on Startup and Set Global State
+# IMPORTANT: This must run BEFORE mcp.run() to set the global flag
+import sys
+sys.stderr.write("[DEBUG] ===== SERVER STARTUP: Update Check =====\n")
+sys.stderr.flush()
+
+try:
+    sys.stderr.write("[DEBUG] Starting update check...\n")
+    sys.stderr.flush()
+    
+    has_updates = health.check_for_updates()  # This sets UPDATE_AVAILABLE global flag
+    sys.stderr.write(f"[DEBUG] check_for_updates() returned: {has_updates}\n")
+    sys.stderr.write(f"[DEBUG] health.UPDATE_AVAILABLE after check: {health.UPDATE_AVAILABLE}\n")
+    sys.stderr.write(f"[DEBUG] is_update_available() after check: {health.is_update_available()}\n")
+    sys.stderr.flush()
+    
+    if has_updates:
+        health.print_update_banner()
+except Exception as e:
+    # Don't fail server startup if update check fails
+    sys.stderr.write(f"[WARN] Update check failed: {e}\n")
+    import traceback
+    sys.stderr.write(traceback.format_exc())
+    sys.stderr.flush()
 
 if __name__ == "__main__":
     mcp.run()

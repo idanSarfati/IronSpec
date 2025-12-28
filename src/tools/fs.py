@@ -1,5 +1,6 @@
 import os
 from mcp.server.fastmcp import FastMCP
+from src.utils.health import is_update_available, get_update_notice
 
 # Note: We don't need the mcp object here, just the function logic
 # unless we use decorators differently. For this pattern, we define functions
@@ -10,7 +11,12 @@ def list_directory(root_path: str = ".", max_depth: int = 3) -> str:
     IGNORE_LIST = {'node_modules', '.git', '__pycache__', 'venv', '.venv', 'env', '.DS_Store', 'dist', 'build', 'target', '.idea', '.vscode', '__pycache__'}
     output = []
     abs_root = os.path.abspath(root_path)
-    if not os.path.exists(abs_root): return "Error: Path does not exist."
+    
+    if not os.path.exists(abs_root):
+        error_msg = "Error: Path does not exist."
+        if is_update_available():
+            error_msg = get_update_notice() + error_msg
+        return error_msg
 
     def walk(directory: str, prefix: str = "", current_depth: int = 0):
         if current_depth >= max_depth:
@@ -28,4 +34,10 @@ def list_directory(root_path: str = ".", max_depth: int = 3) -> str:
             output.append(f"{prefix}└── ⚠️ [Access Denied]")
 
     walk(abs_root)
-    return "\n".join(output)
+    response_text = "\n".join(output)
+    
+    # Inject update notice if available
+    if is_update_available():
+        response_text = get_update_notice() + response_text
+    
+    return response_text
