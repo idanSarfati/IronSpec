@@ -89,8 +89,8 @@ def bootstrap_project(target_dir: str) -> str:
         return f"✅ Success: Founder OS 'Brain' installed at: {target_path}"
     except Exception as e:
         return f"❌ Error initializing: {str(e)}"
-
-# 7. Check for Updates on Startup
+#test message
+# 7. Check for Updates on startup
 if check_for_updates():
     print_update_banner()
 
