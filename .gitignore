@@ -2,4 +2,6 @@
 __pycache__/
 venv/
 
+# Debug/development scripts
+debug_check.py
 
