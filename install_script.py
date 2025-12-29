@@ -77,7 +77,7 @@ def setup_env():
             retry = input("   👉 Continue anyway? (y/n): ").strip().lower()
             if retry == 'y':
                 break
-            print("   Please check your API key and try again.")
+            print("   ❌ Check API key and retry")
 
     # 2. Linear API Key (optional - press Enter to skip)
     print("   ℹ️  (Optional) Add Linear API Key for task context.")
@@ -142,7 +142,7 @@ def setup_env():
             retry = input("   👉 Continue anyway? (y/n): ").strip().lower()
             if retry == 'y':
                 break
-            print("   Please check your Linear API key and try again.")
+            print("   ❌ Check Linear API key and retry")
 
     # Write to file
     try:

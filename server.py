@@ -28,10 +28,7 @@ logger.info("🔍 Validating environment...")
 is_valid, error_msg = validate_environment()
 
 if not is_valid:
-    logger.error("="*40)
-    logger.error(error_msg)
-    logger.error("="*40)
-    logger.error("The server cannot start due to configuration errors.")
+    logger.error(f"Configuration error: {error_msg}")
     sys.exit(1)  # Exit cleanly, don't crash
 
 logger.info("✅ Environment looks good! Starting server...")
@@ -39,10 +36,10 @@ logger.info("✅ Environment looks good! Starting server...")
 # 1. Validate Auth on Startup
 try:
     config = load_auth_config()
-    logger.info(f"Auth Loaded. Notion Key present: {bool(config.notion_api_key)}")
+    logger.info(f"Notion key loaded: {bool(config.notion_api_key)}")
 except ValueError as e:
-    logger.warning(f"Startup Warning: {e}")
-    logger.warning("Run 'python -m config.setup_full' to configure credentials.")
+    logger.warning(f"Auth error: {e}")
+    logger.warning("Run 'python -m config.setup_full' for credentials")
 
 # 2. Initialize Linear Client (Optional - graceful degradation if missing)
 linear_client = None
@@ -51,8 +48,8 @@ try:
     linear_client = LinearClient()
     logger.info("Linear Client initialized.")
 except (ValueError, ImportError) as e:
-    logger.info(f"Linear integration disabled: {e}")
-    logger.info("Add LINEAR_API_KEY to .env to enable Linear tools.")
+    logger.info(f"Linear disabled: {e}")
+    logger.info("Add LINEAR_API_KEY to enable Linear tools")
 
 # 3. Initialize Server
 mcp = FastMCP("Founder OS")
@@ -63,11 +60,11 @@ mcp.add_tool(search_notion)
 mcp.add_tool(fetch_project_context)
 mcp.add_tool(append_to_page)
 mcp.add_tool(list_directory)
-logger.info("Core tools registered: search_notion, fetch_project_context, append_to_page, list_directory")
+logger.info("Core tools registered")
 
 # 5. Register Linear Tools (Conditional - only if client is available)
 if linear_client:
-    logger.info("Linear tools registered: list_linear_tasks, get_linear_task_details")
+    logger.info("Linear tools registered")
     
     @mcp.tool()
     def list_linear_tasks() -> str:
@@ -78,20 +75,13 @@ if linear_client:
         and get an overview of work items.
         """
         try:
-            logger.info("Received request for tool: list_linear_tasks")
-            logger.debug(f"is_update_available() in tool: {is_update_available()}")
-            
+            logger.info("Processing list_linear_tasks")
             response_text = linear_client.get_active_tasks()
-            
+
             if is_update_available():
-                logger.debug("Injecting update notice into Linear tasks response")
-                notice = get_update_notice()
-                logger.debug(f"Notice length: {len(notice)}, Response text length: {len(response_text)}")
-                response_text = notice + response_text
-            else:
-                logger.debug("No update available, skipping notice injection")
-            
-            logger.info(f"list_linear_tasks completed successfully. Response length: {len(response_text)} chars")
+                response_text = get_update_notice() + response_text
+
+            logger.success("list_linear_tasks completed")
             return response_text
         except Exception as e:
             logger.exception("Failed to fetch Linear tasks")
@@ -113,16 +103,13 @@ if linear_client:
         "Action Layer" (Linear tasks) and the "Source of Truth" (Notion specs).
         """
         try:
-            logger.info(f"Received request for tool: get_linear_task_details. Task ID: {task_id}")
-            logger.info(f"Detected Linear Task ID: {task_id}")
-            
+            logger.info(f"Processing get_linear_task_details: {task_id}")
             response_text = linear_client.get_task_details(task_id)
-            
+
             if is_update_available():
-                logger.debug("Injecting update notice into task details response")
                 response_text = get_update_notice() + response_text
-            
-            logger.info(f"get_linear_task_details completed successfully. Response length: {len(response_text)} chars")
+
+            logger.success("get_linear_task_details completed")
             return response_text
         except Exception as e:
             logger.exception(f"Failed to fetch Linear task details for {task_id}")
@@ -158,6 +145,5 @@ except Exception as e:
     logger.exception("Update check exception details")
 
 if __name__ == "__main__":
-    logger.info("Server started. Environment Validated: Yes.")
-    logger.info("Starting MCP server...")
+    logger.success("Server ready")
     mcp.run()
