@@ -93,8 +93,8 @@ def setup_logger(name: str = "founder-os") -> logging.Logger:
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     
-    # Handler 2: Console output (stdout)
-    console_handler = logging.StreamHandler(sys.stdout)
+    # Handler 2: Console output (stderr - MUST use stderr for MCP servers to avoid corrupting JSON-RPC over stdio)
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     
