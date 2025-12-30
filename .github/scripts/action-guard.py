@@ -42,8 +42,11 @@ class ActionGuard:
         # Configure Gemini
         api_key = os.getenv('GEMINI_API_KEY', '')
         if not api_key:
-            print("❌ GEMINI_API_KEY environment variable not set")
-            sys.exit(1)
+            print("⚠️  GEMINI_API_KEY environment variable not set")
+            print("   LLM validation will be skipped for this run")
+            self.client = None
+            self.model = None
+            return
 
         try:
             if USE_NEW_PACKAGE:
@@ -220,6 +223,11 @@ class ActionGuard:
 
     def validate_with_llm(self, spec_content: str, git_diff: str) -> bool:
         """Use LLM to validate if changes violate the spec"""
+        # Skip LLM validation if no API key was provided
+        if self.client is None and self.model is None:
+            print("⚠️  Skipping LLM validation (no API key configured)")
+            return True
+
         try:
             prompt = f"""
             You are a code reviewer validating that code changes comply with business requirements.
