@@ -76,15 +76,32 @@ class ActionGuard:
             sys.exit(1)
         return pr_number
 
+    def should_skip_validation(self, pr_title: str) -> bool:
+        """Check if PR should skip Linear validation (for infra/setup changes)"""
+        # Check for explicit [SKIP] tag
+        if '[SKIP]' in pr_title.upper():
+            return True
+
+        # Check for infrastructure keywords
+        skip_keywords = [
+            'infra', 'ci', 'workflow', 'github action', 'permissions',
+            'dependencies', 'setup', 'config', 'build', 'lint', 'docker',
+            'readme', 'documentation', 'chore', 'refactor', 'test'
+        ]
+
+        title_lower = pr_title.lower()
+        return any(keyword in title_lower for keyword in skip_keywords)
+
     def extract_linear_issue_id(self, pr_title: str) -> Optional[str]:
         """Extract Linear issue ID from PR title (e.g., [FOS-101])"""
         match = re.search(r'\[([A-Z]+-\d+)\]', pr_title)
         if match:
             return match.group(1)
         else:
-            print("❌ Could not extract Linear issue ID from PR title"            print(f"   PR Title: {pr_title}")
+            print("❌ Could not extract Linear issue ID from PR title")
+            print(f"   PR Title: {pr_title}")
             print("   Expected format: [ISSUE-ID] in title (e.g., [ENG-5], [FOS-101])")
-            print("   Please update your PR title to include the Linear issue ID")
+            print("   Or use infrastructure keywords to skip validation")
             return None
 
     def query_linear_issue(self, issue_id: str) -> Optional[Dict[str, Any]]:
@@ -241,12 +258,20 @@ class ActionGuard:
         """Main execution flow"""
         print("🔍 Starting Action Guard validation...")
 
+        # Check if this PR should skip Linear validation
+        if self.should_skip_validation(self.pr_title):
+            print(f"⚠️  Skipping Linear validation for infrastructure change")
+            print(f"   PR Title: {self.pr_title}")
+            print("✅ Allowing PR to proceed without specification validation")
+            return
+
         # Step 1: Extract Linear Issue ID from PR title
         issue_id = self.extract_linear_issue_id(self.pr_title)
         if not issue_id:
             print("❌ Could not extract Linear issue ID from PR title")
             print(f"   PR Title: {self.pr_title}")
-            print("   Expected format: [ISSUE-ID] in title")
+            print("   Expected format: [ISSUE-ID] in title (e.g., [ENG-5], [FOS-101])")
+            print("   Or add infrastructure keywords to skip validation")
             sys.exit(1)
 
         print(f"📋 Found Linear issue: {issue_id}")
