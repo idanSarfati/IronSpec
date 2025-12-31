@@ -250,24 +250,29 @@ class ActionGuard:
 
     def get_git_diff(self):
         """
-        Retrieves the git diff between the current branch and the main branch.
-        Uses a robust fetching strategy to ensure origin/main is available.
+        Retrieves git diff with extensive debugging and robust fetching.
         """
         print("🔍 Getting git diff...")
+
+        # 1. Debug: איפה אנחנו נמצאים?
+        print("📍 Current Git State:")
+        subprocess.run(["git", "branch", "-vv"], check=False)
+        subprocess.run(["git", "log", "--oneline", "-n", "3"], check=False)
+
         try:
-            # 1. מוודאים ש-main מעודכן אצלנו מקומית
-            # זה מונע מצב שבו ה-Action לא מכיר את ה-branch המקורי
-            print("🔄 Fetching origin/main...")
+            # 2. Force Fetch: מעדכן בכוח את origin/main
+            print("🔄 Force fetching origin/main...")
             subprocess.run(
-                ["git", "fetch", "origin", "main"],
-                check=False,  # לא מכשילים אם יש בעיה רשתית קלה, ננסה בכל זאת
-                capture_output=True
+                ["git", "fetch", "origin", "main:refs/remotes/origin/main", "--depth=1"],
+                check=True,
+                capture_output=False # אנחנו רוצים לראות את הפלט בלוג
             )
 
-            # 2. הרצת ה-Diff בצורה הישירה והפשוטה ביותר
-            # משווים את התיקייה הנוכחית (ה-PR) מול origin/main
-            # ללא שלוש נקודות (...) שגורמות לבעיות merge-base
-            cmd = ["git", "diff", "origin/main"]
+            # 3. הרצת ה-Diff
+            # משתמשים ב-HEAD כדי לוודא שאנחנו משווים את מה שבדקנו כרגע (Checkout)
+            # מול ה-main שהרגע הורדנו
+            print("⚖️ Running diff against origin/main...")
+            cmd = ["git", "diff", "origin/main", "HEAD"]
 
             result = subprocess.run(
                 cmd,
@@ -276,21 +281,23 @@ class ActionGuard:
                 check=True
             )
 
-            diff_content = result.stdout.strip()
-            if diff_content:
-                print(f"📄 Got git diff ({len(diff_content)} chars)")
-                return diff_content
-            else:
-                print("⚠️  Git diff is empty")
+            diff_output = result.stdout.strip()
+
+            if not diff_output:
+                print("⚠️  Git diff returned empty string!")
+                # Debug fallback: אולי אנחנו כבר ב-main?
                 return ""
 
+            print(f"✅ Found diff output ({len(diff_output)} chars)")
+            return diff_output
+
         except subprocess.CalledProcessError as e:
-            print(f"❌ Failed to get git diff: {e}")
+            print(f"❌ Git command failed: {e}")
             print(f"Error output: {e.stderr}")
-            return ""
+            return None
         except Exception as e:
-            print(f"❌ Unexpected error getting git diff: {e}")
-            return ""
+            print(f"❌ Unexpected error: {e}")
+            return None
 
     def validate_with_llm(self, spec_content: str, git_diff: str) -> bool:
         """Use LLM to validate if changes violate the spec"""
