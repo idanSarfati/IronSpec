@@ -12,6 +12,7 @@ import re
 import json
 import requests
 import subprocess
+import time
 from typing import Optional, Dict, Any
 
 try:
@@ -250,24 +251,29 @@ class ActionGuard:
 
     def get_git_diff(self):
         """
-        Retrieves the git diff between the current branch and the main branch.
-        Uses a robust fetching strategy to ensure origin/main is available.
+        Retrieves git diff with extensive debugging and robust fetching.
         """
         print("🔍 Getting git diff...")
+
+        # 1. Debug: איפה אנחנו נמצאים?
+        print("📍 Current Git State:")
+        subprocess.run(["git", "branch", "-vv"], check=False)
+        subprocess.run(["git", "log", "--oneline", "-n", "3"], check=False)
+
         try:
-            # 1. מוודאים ש-main מעודכן אצלנו מקומית
-            # זה מונע מצב שבו ה-Action לא מכיר את ה-branch המקורי
-            print("🔄 Fetching origin/main...")
+            # 2. Force Fetch: מעדכן בכוח את origin/main
+            print("🔄 Force fetching origin/main...")
             subprocess.run(
-                ["git", "fetch", "origin", "main"],
-                check=False,  # לא מכשילים אם יש בעיה רשתית קלה, ננסה בכל זאת
-                capture_output=True
+                ["git", "fetch", "origin", "main:refs/remotes/origin/main", "--depth=1"],
+                check=True,
+                capture_output=False # אנחנו רוצים לראות את הפלט בלוג
             )
 
-            # 2. הרצת ה-Diff בצורה הישירה והפשוטה ביותר
-            # משווים את התיקייה הנוכחית (ה-PR) מול origin/main
-            # ללא שלוש נקודות (...) שגורמות לבעיות merge-base
-            cmd = ["git", "diff", "origin/main"]
+            # 3. הרצת ה-Diff
+            # משתמשים ב-HEAD כדי לוודא שאנחנו משווים את מה שבדקנו כרגע (Checkout)
+            # מול ה-main שהרגע הורדנו
+            print("⚖️ Running diff against origin/main...")
+            cmd = ["git", "diff", "origin/main", "HEAD"]
 
             result = subprocess.run(
                 cmd,
@@ -276,73 +282,117 @@ class ActionGuard:
                 check=True
             )
 
-            diff_content = result.stdout.strip()
-            if diff_content:
-                print(f"📄 Got git diff ({len(diff_content)} chars)")
-                return diff_content
-            else:
-                print("⚠️  Git diff is empty")
+            diff_output = result.stdout.strip()
+
+            if not diff_output:
+                print("⚠️  Git diff returned empty string!")
+                # Debug fallback: אולי אנחנו כבר ב-main?
                 return ""
 
+            print(f"✅ Found diff output ({len(diff_output)} chars)")
+            return diff_output
+
         except subprocess.CalledProcessError as e:
-            print(f"❌ Failed to get git diff: {e}")
+            print(f"❌ Git command failed: {e}")
             print(f"Error output: {e.stderr}")
-            return ""
+            return None
         except Exception as e:
-            print(f"❌ Unexpected error getting git diff: {e}")
-            return ""
+            print(f"❌ Unexpected error: {e}")
+            return None
 
     def validate_with_llm(self, spec_content: str, git_diff: str) -> bool:
-        """Use LLM to validate if changes violate the spec"""
+        """
+        Validates code changes against specification using Gemini API.
+        Includes Retry logic for Rate Limits (429).
+        """
+        print("🔍 Analyzing code changes...")
+
         # Skip LLM validation if no API key was provided
         if self.client is None and self.model is None:
             print("⚠️  Skipping LLM validation (no API key configured)")
             return True
 
-        try:
-            prompt = f"""
-            You are a code reviewer validating that code changes comply with business requirements.
+        # שינוי למודל יציב יותר עם מכסות גבוהות
+        model_name = "gemini-1.5-flash-latest"
 
-            SPECIFICATION:
-            {spec_content}
+        prompt = f"""
+        You are a Senior Tech Lead validating a PR.
 
-            CODE CHANGES (GIT DIFF):
-            {git_diff}
+        Specification from Notion:
+        {spec_content}
 
-            TASK: Analyze the code changes and determine if they violate any requirements in the specification.
+        Code Changes (Git Diff):
+        {git_diff}
 
-            IMPORTANT: Respond with ONLY "YES" if the changes violate the spec, or "NO" if they comply.
-            If violations are found, briefly explain why in the next line (max 100 words).
-            """
+        Task:
+        1. Check if the code implements the requirements in the specification.
+        2. Look for logical bugs or security issues.
+        3. Verify that the implementation matches the design.
 
-            if USE_NEW_PACKAGE:
-                response = self.client.models.generate_content(
-                    model='gemini-2.0-flash-exp',
-                    contents=prompt
-                )
-                result = response.text.strip()
-            else:
-                response = self.model.generate_content(prompt)
-                result = response.text.strip()
+        Output only JSON in this format:
+        {{
+            "approved": boolean,
+            "comments": "explanation of decision",
+            "critical_issues": ["list", "of", "blockers"]
+        }}
+        """
 
-            # Write result to file for workflow to read
-            with open('validation_result.txt', 'w') as f:
-                f.write(result)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if USE_NEW_PACKAGE:
+                    response = self.client.models.generate_content(
+                        model=model_name,
+                        contents=prompt
+                    )
+                    result = response.text.strip()
+                else:
+                    # For old package, switch to stable model
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    result = response.text.strip()
 
-            if result.upper().startswith('YES'):
-                print(f"🚫 SPEC VIOLATION DETECTED: {result}")
-                return False
-            else:
-                print("✅ Changes comply with specification")
-                return True
+                # Parse JSON response
+                # Remove markdown code blocks if present
+                result = result.replace('```json', '').replace('```', '').strip()
+                try:
+                    parsed = json.loads(result)
+                except json.JSONDecodeError:
+                    # Fallback to simple text analysis if JSON parsing fails
+                    parsed = {"approved": "NO" not in result.upper(), "comments": result[:200], "critical_issues": []}
 
-        except Exception as e:
-            print(f"❌ LLM validation failed: {e}")
-            print(f"   Using package: {'google.genai' if USE_NEW_PACKAGE else 'google.generativeai'}")
-            # Write error to file
-            with open('validation_result.txt', 'w') as f:
-                f.write(f"LLM validation failed: {str(e)}")
-            return True  # Default to allowing if LLM fails
+                # Write result to file for workflow to read
+                with open('validation_result.txt', 'w') as f:
+                    f.write(json.dumps(parsed, indent=2))
+
+                if parsed.get("approved", False):
+                    print("✅ AI Validation Passed")
+                    print(f"   Comments: {parsed.get('comments', '')}")
+                    return True
+                else:
+                    print("❌ AI Validation Failed:")
+                    print(f"   Reason: {parsed.get('comments', '')}")
+                    print(f"   Issues: {parsed.get('critical_issues', [])}")
+                    return False
+
+            except Exception as e:
+                error_str = str(e)
+                print(f"⚠️  Attempt {attempt + 1}/{max_retries} failed: {error_str[:200]}...")
+
+                # אם זה Rate Limit (429), נחכה וננסה שוב
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    wait_time = 20
+                    print(f"⏳ Hit rate limit. Waiting {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    # אם זו שגיאה אחרת, נחכה קצת ונסה שוב
+                    time.sleep(2)
+
+        print("❌ LLM validation failed after all retries.")
+        # Write failure result
+        with open('validation_result.txt', 'w') as f:
+            f.write(json.dumps({"approved": False, "comments": "AI validation failed after retries", "critical_issues": ["Validation system error"]}, indent=2))
+        return False  # חשוב מאוד! מחזירים False כדי לחסום את ה-PR במקרה של כישלון
 
     def run(self):
         """Main execution flow"""
