@@ -313,7 +313,7 @@ class ActionGuard:
             return True
 
         # שינוי למודל יציב יותר עם מכסות גבוהות
-        model_name = "gemini-1.5-flash"
+        model_name = "gemini-1.5-flash-latest"
 
         prompt = f"""
         You are a Senior Tech Lead validating a PR.
