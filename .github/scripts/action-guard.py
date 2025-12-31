@@ -140,7 +140,8 @@ class ActionGuard:
             url = "https://api.linear.app/graphql"
             headers = {
                 'Authorization': self.linear_api_key,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-apollo-operation-name': 'GetIssue'
             }
 
             # Debug: Print request details
