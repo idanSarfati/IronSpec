@@ -251,53 +251,51 @@ class ActionGuard:
 
     def get_git_diff(self):
         """
-        Retrieves git diff with extensive debugging and robust fetching.
+        Retrieves git diff looking at the merge commit parents.
+        Best for GitHub Actions pull_request events.
         """
         print("🔍 Getting git diff...")
 
-        # 1. Debug: איפה אנחנו נמצאים?
-        print("📍 Current Git State:")
-        subprocess.run(["git", "branch", "-vv"], check=False)
-        subprocess.run(["git", "log", "--oneline", "-n", "3"], check=False)
-
         try:
-            # 2. Force Fetch: מעדכן בכוח את origin/main
-            print("🔄 Force fetching origin/main...")
-            subprocess.run(
-                ["git", "fetch", "origin", "main:refs/remotes/origin/main", "--depth=1"],
-                check=True,
-                capture_output=False # אנחנו רוצים לראות את הפלט בלוג
-            )
+            # אופציה 1: השיטה הקלאסית ל-GitHub Actions (השוואה מול ה-Base של המיזוג)
+            # HEAD^1 = המצב של main לפני המיזוג
+            # HEAD = המצב אחרי המיזוג (כולל השינויים שלך)
+            print("⚖️ Attempting diff against merge parent (HEAD^1)...")
 
-            # 3. הרצת ה-Diff
-            # משתמשים ב-HEAD כדי לוודא שאנחנו משווים את מה שבדקנו כרגע (Checkout)
-            # מול ה-main שהרגע הורדנו
-            print("⚖️ Running diff against origin/main...")
-            cmd = ["git", "diff", "origin/main", "HEAD"]
+            # אנחנו מוסיפים --no-color כדי להקל על העיבוד
+            cmd = ["git", "diff", "HEAD^1", "HEAD"]
 
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True,
-                check=True
+                text=True
             )
 
-            diff_output = result.stdout.strip()
+            if result.returncode == 0 and result.stdout.strip():
+                print(f"✅ Found diff using HEAD^1 ({len(result.stdout)} chars)")
+                return result.stdout
 
-            if not diff_output:
-                print("⚠️  Git diff returned empty string!")
-                # Debug fallback: אולי אנחנו כבר ב-main?
-                return ""
+            # אופציה 2: גיבוי למקרה שאנחנו לא ב-Merge Commit (למשל Rebase)
+            print("⚠️ HEAD^1 failed or empty, falling back to origin/main...")
+            subprocess.run(["git", "fetch", "origin", "main"], check=False)
+            cmd_fallback = ["git", "diff", "origin/main", "HEAD"]
 
-            print(f"✅ Found diff output ({len(diff_output)} chars)")
-            return diff_output
+            result_fallback = subprocess.run(
+                cmd_fallback,
+                capture_output=True,
+                text=True
+            )
 
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Git command failed: {e}")
-            print(f"Error output: {e.stderr}")
-            return None
+            diff_out = result_fallback.stdout.strip()
+            if diff_out:
+                print(f"✅ Found diff using origin/main ({len(diff_out)} chars)")
+                return diff_out
+
+            print("⚠️ Git diff is truly empty (checked both methods)")
+            return ""
+
         except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+            print(f"❌ Error getting git diff: {e}")
             return None
 
     def validate_with_llm(self, spec_content: str, git_diff: str) -> bool:
