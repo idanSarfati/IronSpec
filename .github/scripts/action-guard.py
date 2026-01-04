@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-GitHub Action Guard - CI/CD Spec Validation
+GitHub Action Guard - Dual Validation System
 
-This script validates that PR changes comply with the Notion specification
-linked to the Linear issue referenced in the PR title.
+Phase A: Spec Validation - Validates PR changes against the specific Notion spec linked to the Linear issue
+Phase B: Governance Enforcement - Validates PR changes against global governance rules (forbidden libraries, etc.)
+
+This script runs both validations to ensure code compliance at multiple levels.
 """
 
 import os
@@ -13,7 +15,7 @@ import json
 import requests
 import subprocess
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 try:
     import google.genai as genai
@@ -394,8 +396,26 @@ class ActionGuard:
         return False  # חשוב מאוד! מחזירים False כדי לחסום את ה-PR במקרה של כישלון
 
     def run(self):
-        """Main execution flow"""
+        """Main execution flow - now supports dual validation"""
         print("🔍 Starting Action Guard validation...")
+
+        # Check if we should run dual validation (Phase A + Phase B)
+        # Default to dual validation, but allow override via environment
+        validation_mode = os.getenv('VALIDATION_MODE', 'dual').lower()
+
+        if validation_mode == 'spec_only':
+            # Original spec-only validation
+            self.run_spec_validation()
+        elif validation_mode == 'governance_only':
+            # Governance-only validation
+            self.run_governance_validation()
+        else:
+            # Default: Dual validation (Phase A + Phase B)
+            self.run_dual_validation()
+
+    def run_spec_validation(self):
+        """Run only Phase A: Spec validation (original functionality)"""
+        print("🏷️ Running Phase A only: Spec Validation")
 
         # Get PR title if not set in environment
         if not self.pr_title:
@@ -457,6 +477,199 @@ class ActionGuard:
             sys.exit(1)
         else:
             print("✅ PR approved - changes comply with specification")
+
+    def run_governance_validation(self):
+        """Run only Phase B: Governance enforcement"""
+        print("🏛️ Running Phase B only: Governance Enforcement")
+
+        governance_rules = self.extract_governance_rules()
+        if not governance_rules:
+            print("❌ Cannot proceed without governance rules")
+            sys.exit(1)
+
+        git_diff = self.get_git_diff()
+        if not git_diff:
+            print("⚠️  No git diff found, assuming compliance")
+            return
+
+        is_compliant = self.validate_governance_compliance(git_diff, governance_rules)
+
+        if not is_compliant:
+            print("🚫 PR blocked due to governance violation")
+            sys.exit(1)
+        else:
+            print("✅ PR approved - governance compliance verified")
+
+    def extract_governance_rules(self) -> Optional[Dict[str, Any]]:
+        """
+        Extract governance rules from Notion and Linear using the same logic as governance_extraction.py
+
+        Returns:
+            Dictionary with governance constraints or None if extraction fails
+        """
+        print("🏛️ Extracting governance rules from Notion and Linear...")
+
+        try:
+            # Import the governance extraction logic
+            sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
+
+            from tools.governance_extraction import extract_governance_data
+
+            # Set required environment variables for the extraction
+            os.environ['NOTION_API_KEY'] = self.notion_token
+            os.environ['LINEAR_API_KEY'] = self.linear_api_key
+
+            governance_data = extract_governance_data()
+
+            print("✅ Successfully extracted governance rules:")
+            print(f"   Allowed tech: {governance_data.get('ALLOWED_TECH_STACK', 'None')[:100]}...")
+            print(f"   Forbidden libs: {governance_data.get('FORBIDDEN_LIBRARIES', 'None')[:100]}...")
+
+            return governance_data
+
+        except Exception as e:
+            print(f"❌ Failed to extract governance rules: {e}")
+            return None
+
+    def validate_governance_compliance(self, git_diff: str, governance_rules: Dict[str, Any]) -> bool:
+        """
+        Validate that git diff doesn't violate governance rules
+
+        Args:
+            git_diff: The git diff content
+            governance_rules: Governance constraints from Notion/Linear
+
+        Returns:
+            True if compliant, False if violations found
+        """
+        print("🔍 Validating governance compliance...")
+
+        violations = []
+
+        # Check for forbidden libraries
+        forbidden_libs = governance_rules.get('FORBIDDEN_LIBRARIES', '')
+        if forbidden_libs and forbidden_libs != 'Unknown/Detect from Codebase':
+            forbidden_list = [lib.strip().lower() for lib in forbidden_libs.replace(',', ';').split(';') if lib.strip()]
+
+            for lib in forbidden_list:
+                if lib in git_diff.lower():
+                    # Look for actual imports, not just mentions in comments
+                    import_patterns = [
+                        f'import {lib}',
+                        f'from {lib}',
+                        f'require.*{lib}',
+                        f'const.*=.*require.*{lib}',
+                        f'import.*from.*{lib}'
+                    ]
+
+                    for pattern in import_patterns:
+                        if re.search(pattern, git_diff, re.IGNORECASE):
+                            violations.append(f"🚫 Forbidden library used: {lib}")
+                            break
+
+        # Check for allowed tech stack compliance (basic check)
+        allowed_tech = governance_rules.get('ALLOWED_TECH_STACK', '')
+        if allowed_tech and allowed_tech != 'Unknown/Detect from Codebase':
+            # This is more complex - we'd need to analyze the tech stack used
+            # For now, just log that we have constraints
+            print(f"📋 Tech stack constraints active: {allowed_tech[:50]}...")
+
+        # Check security level
+        security_level = governance_rules.get('STRICTNESS_LEVEL', 'MEDIUM')
+        print(f"🛡️ Security level: {security_level}")
+
+        if violations:
+            print("❌ Governance violations found:")
+            for violation in violations:
+                print(f"   {violation}")
+
+            # Write violations to file for workflow to read
+            with open('governance_violations.txt', 'w') as f:
+                f.write('\n'.join(violations))
+
+            return False
+        else:
+            print("✅ No governance violations detected")
+            return True
+
+    def run_dual_validation(self):
+        """
+        Run both spec validation (Phase A) and governance enforcement (Phase B)
+        """
+        print("🚀 Starting Dual Validation System...")
+        print("   Phase A: Spec Validation (PR-specific requirements)")
+        print("   Phase B: Governance Enforcement (Global architecture rules)")
+
+        # Get PR title
+        if not self.pr_title:
+            self.pr_title = self.get_pr_title()
+
+        # Phase A: Spec Validation (existing logic)
+        print("\n" + "="*60)
+        print("🏷️ PHASE A: SPEC VALIDATION")
+        print("="*60)
+
+        if self.should_skip_validation(self.pr_title):
+            print("⚠️  Skipping Linear validation for infrastructure change")
+            spec_passed = True
+        else:
+            # Run existing spec validation logic
+            issue_id = self.extract_linear_issue_id(self.pr_title)
+            if not issue_id:
+                print("❌ Spec validation failed: No Linear issue ID")
+                spec_passed = False
+            else:
+                issue = self.query_linear_issue(issue_id)
+                if not issue:
+                    spec_passed = False
+                else:
+                    notion_page_id = self.extract_notion_page_id(issue.get('description', ''))
+                    if not notion_page_id:
+                        spec_passed = False
+                    else:
+                        spec_content = self.fetch_notion_page(notion_page_id)
+                        if not spec_content:
+                            spec_passed = False
+                        else:
+                            git_diff = self.get_git_diff()
+                            if git_diff:
+                                spec_passed = self.validate_with_llm(spec_content, git_diff)
+                            else:
+                                spec_passed = True  # No changes = compliant
+
+        # Phase B: Governance Enforcement (new logic)
+        print("\n" + "="*60)
+        print("🏛️ PHASE B: GOVERNANCE ENFORCEMENT")
+        print("="*60)
+
+        governance_rules = self.extract_governance_rules()
+        if governance_rules:
+            git_diff = self.get_git_diff()
+            if git_diff:
+                governance_passed = self.validate_governance_compliance(git_diff, governance_rules)
+            else:
+                governance_passed = True  # No changes = compliant
+        else:
+            print("❌ Governance extraction failed - cannot enforce rules")
+            governance_passed = False
+
+        # Final decision
+        print("\n" + "="*60)
+        print("🎯 VALIDATION RESULTS")
+        print("="*60)
+        print(f"Phase A (Spec): {'✅ PASSED' if spec_passed else '❌ FAILED'}")
+        print(f"Phase B (Governance): {'✅ PASSED' if governance_passed else '❌ FAILED'}")
+
+        if spec_passed and governance_passed:
+            print("🎉 ALL VALIDATIONS PASSED - PR can proceed!")
+            return
+        else:
+            print("🚫 VALIDATION FAILED - Blocking PR")
+            if not spec_passed:
+                print("   Reason: Spec validation failed")
+            if not governance_passed:
+                print("   Reason: Governance violations detected")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

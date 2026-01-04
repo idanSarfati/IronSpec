@@ -14,6 +14,11 @@ from dotenv import load_dotenv, find_dotenv
 from config.auth_config import load_auth_config
 from src.utils.logger import logger
 
+# Load .env file before accessing environment variables
+env_path = find_dotenv()
+if env_path:
+    load_dotenv(dotenv_path=env_path)
+
 
 class LinearClient:
     """
