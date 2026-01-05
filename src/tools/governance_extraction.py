@@ -73,6 +73,15 @@ class GovernanceExtractor:
         """
         logger.info("Starting governance data extraction")
 
+        # Check if we can even attempt extraction (dependencies available)
+        try:
+            import tools.notion_context  # Test if notion_context can be imported
+            import integrations.linear_client  # Test if linear_client can be imported
+        except ImportError as e:
+            logger.warning(f"External dependencies not available: {e}")
+            logger.info("Using hardcoded governance fallback (CI Mode)")
+            return self._get_hardcoded_fallback_data()
+
         try:
             # Step 1: Extract context from Notion
             notion_context = self._extract_notion_context()

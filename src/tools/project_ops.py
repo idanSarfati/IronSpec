@@ -8,10 +8,24 @@ Supports Cursor Rules V2 structure with dynamic governance extraction.
 
 import os
 from typing import Dict, Any
-from config.governance_template import get_governance_template
-from src.tools.governance_extraction import extract_governance_data
-from src.utils.llm_client import get_llm_client
-from src.utils.logger import logger
+try:
+    from config.governance_template import get_governance_template
+    from tools.governance_extraction import extract_governance_data
+    from utils.llm_client import get_llm_client
+    from utils.logger import logger
+except ImportError:
+    # Fallback for CI/CD environments
+    try:
+        from src.config.governance_template import get_governance_template
+        from src.tools.governance_extraction import extract_governance_data
+        from src.utils.llm_client import get_llm_client
+        from src.utils.logger import logger
+    except ImportError:
+        import logging
+        logger = logging.getLogger(__name__)
+        get_governance_template = None
+        extract_governance_data = None
+        get_llm_client = None
 
 
 def bootstrap_project(target_dir: str) -> str:
