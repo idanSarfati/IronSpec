@@ -264,17 +264,23 @@ class ActionGuard:
     def get_git_diff(self):
         """
         Retrieves git diff for PR validation.
-        In GitHub Actions, compares against the base branch (usually main).
+        Handles both local testing and GitHub Actions environments.
         """
         print("INFO: Getting git diff...")
 
         try:
-            # For GitHub Actions PR events, fetch and compare against origin/main
-            print("Attempting diff against origin/main...")
-            subprocess.run(["git", "fetch", "origin", "main"], check=False, capture_output=True)
+            # Check if we're in GitHub Actions (has GITHUB_ACTIONS env var)
+            is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
 
-            # Compare current branch against origin/main (the base branch)
-            cmd = ["git", "diff", "origin/main", "HEAD"]
+            if is_github_actions:
+                # GitHub Actions PR environment: use merge commit logic
+                print("Running in GitHub Actions - using merge commit diff...")
+                cmd = ["git", "diff", "HEAD^1", "HEAD"]
+            else:
+                # Local testing: fetch and compare against origin/main
+                print("Running locally - fetching origin/main...")
+                subprocess.run(["git", "fetch", "origin", "main"], check=False, capture_output=True)
+                cmd = ["git", "diff", "origin/main", "HEAD"]
 
             result = subprocess.run(
                 cmd,
@@ -285,14 +291,14 @@ class ActionGuard:
             if result.returncode == 0:
                 diff_content = result.stdout.strip()
                 if diff_content:
-                    print(f"SUCCESS: Found diff against origin/main ({len(diff_content)} chars)")
+                    print(f"SUCCESS: Found diff ({len(diff_content)} chars)")
                     return diff_content
                 else:
-                    print("INFO: No diff found against origin/main (no changes)")
+                    print("INFO: No diff found (no changes)")
                     return ""
             else:
                 print(f"WARNING: Git diff command failed: {result.stderr}")
-            return ""
+                return ""
 
         except Exception as e:
             print(f"ERROR: Error getting git diff: {e}")
