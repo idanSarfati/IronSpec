@@ -495,12 +495,31 @@ class ActionGuard:
             print("ERROR: Cannot proceed without governance rules")
             sys.exit(1)
 
+        # Get git diff
         git_diff = self.get_git_diff()
-        if not git_diff:
-            print("WARNING:  No git diff found, assuming compliance")
-            return
 
-        is_compliant = self.validate_governance_compliance(git_diff, governance_rules)
+        # --- תיקון: קריאה ישירה של requirements.txt ---
+        deps_content = ""
+        if os.path.exists("requirements.txt"):
+            try:
+                with open("requirements.txt", "r") as f:
+                    deps_content = f.read()
+                print(f"📦 Loaded requirements.txt ({len(deps_content)} chars)")
+            except Exception as e:
+                print(f"⚠️ Could not read requirements.txt: {e}")
+
+        # בניית הקונטקסט המלא ל-AI
+        # אנחנו אומרים לו: "הנה השינויים בקוד, אבל הנה גם רשימת התלויות המלאה!"
+        full_context_for_validation = f"""
+        GIT DIFF CHECK:
+        {git_diff if git_diff else "No code changes detected in diff."}
+
+        FULL DEPENDENCY CHECK (requirements.txt):
+        {deps_content if deps_content else "No requirements.txt found."}
+        """
+
+        # Use the full context (not just git diff) for validation
+        is_compliant = self.validate_governance_compliance(full_context_for_validation, governance_rules)
 
         if not is_compliant:
             print("BLOCKED: PR blocked due to governance violation")
@@ -564,12 +583,16 @@ class ActionGuard:
             return None
 
 
-    def validate_governance_compliance(self, git_diff: str, governance_rules: Dict[str, Any]) -> bool:
+    def validate_governance_compliance(self, full_context: str, governance_rules: Dict[str, Any]) -> bool:
         """
-        Validate that git diff doesn't violate governance rules
+        Validate that PR changes don't violate governance rules
+
+        Checks both:
+        1. Git diff for added forbidden dependencies
+        2. Direct file scanning for forbidden libraries in requirements.txt, package.json, etc.
 
         Args:
-            git_diff: The git diff content
+            full_context: Combined context including git diff and file contents
             governance_rules: Governance constraints from Notion/Linear
 
         Returns:
@@ -585,9 +608,9 @@ class ActionGuard:
             forbidden_list = [lib.strip().lower() for lib in forbidden_libs.replace(',', ';').split(';') if lib.strip()]
             print(f"DEBUG: Checking for forbidden libraries: {forbidden_list}")
 
-            # 1. Check git diff for added dependencies
+            # 1. Check full context (includes both git diff and file contents) for forbidden dependencies
             for lib in forbidden_list:
-                if lib in git_diff.lower():
+                if lib in full_context.lower():
                     # Check for dependency additions in package files
                     dependency_patterns = [
                         f'^{lib}$',  # Just the library name (like in requirements.txt)
@@ -601,9 +624,9 @@ class ActionGuard:
                     ]
 
                     for pattern in dependency_patterns:
-                        if re.search(pattern, git_diff, re.IGNORECASE | re.MULTILINE):
-                            violations.append(f"BLOCKED: Forbidden library added to dependencies: {lib}")
-                            print(f"VIOLATION: Found forbidden library '{lib}' in git diff")
+                        if re.search(pattern, full_context, re.IGNORECASE | re.MULTILINE):
+                            violations.append(f"BLOCKED: Forbidden library found: {lib}")
+                            print(f"VIOLATION: Found forbidden library '{lib}' in PR changes or dependencies")
                             break
 
             # 2. Check actual file contents for forbidden libraries
