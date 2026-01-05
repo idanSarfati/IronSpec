@@ -109,7 +109,7 @@ class ActionGuard:
             'infra', 'ci', 'workflow', 'github action', 'permissions',
             'dependencies', 'setup', 'config', 'build', 'lint', 'docker',
             'readme', 'documentation', 'chore', 'refactor', 'test', 'fix',
-            'feat', 'style', 'perf', 'revert'
+            'feat', 'style', 'perf', 'revert', 'debug'
         ]
 
         title_lower = pr_title.lower()
@@ -273,9 +273,13 @@ class ActionGuard:
             is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
 
             if is_github_actions:
-                # GitHub Actions PR environment: use merge commit logic
-                print("Running in GitHub Actions - using merge commit diff...")
-                cmd = ["git", "diff", "HEAD^1", "HEAD"]
+                # GitHub Actions PR events: compare against target branch
+                target_branch = os.getenv('GITHUB_BASE_REF', 'main')  # e.g., 'main' or 'master'
+                print(f"Running in GitHub Actions - comparing against target branch: {target_branch}")
+
+                # Fetch the target branch and compare
+                subprocess.run(["git", "fetch", "origin", target_branch], check=False, capture_output=True)
+                cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
             else:
                 # Local testing: fetch and compare against origin/main
                 print("Running locally - fetching origin/main...")
@@ -298,7 +302,7 @@ class ActionGuard:
                     return ""
             else:
                 print(f"WARNING: Git diff command failed: {result.stderr}")
-                return ""
+            return ""
 
         except Exception as e:
             print(f"ERROR: Error getting git diff: {e}")
