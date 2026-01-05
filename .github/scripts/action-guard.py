@@ -263,19 +263,18 @@ class ActionGuard:
 
     def get_git_diff(self):
         """
-        Retrieves git diff looking at the merge commit parents.
-        Best for GitHub Actions pull_request events.
+        Retrieves git diff for PR validation.
+        In GitHub Actions, compares against the base branch (usually main).
         """
         print("INFO: Getting git diff...")
 
         try:
-            # אופציה 1: השיטה הקלאסית ל-GitHub Actions (השוואה מול ה-Base של המיזוג)
-            # HEAD^1 = המצב של main לפני המיזוג
-            # HEAD = המצב אחרי המיזוג (כולל השינויים שלך)
-            print("Attempting diff against merge parent (HEAD^1)...")
+            # For GitHub Actions PR events, fetch and compare against origin/main
+            print("Attempting diff against origin/main...")
+            subprocess.run(["git", "fetch", "origin", "main"], check=False, capture_output=True)
 
-            # אנחנו מוסיפים --no-color כדי להקל על העיבוד
-            cmd = ["git", "diff", "HEAD^1", "HEAD"]
+            # Compare current branch against origin/main (the base branch)
+            cmd = ["git", "diff", "origin/main", "HEAD"]
 
             result = subprocess.run(
                 cmd,
@@ -283,27 +282,16 @@ class ActionGuard:
                 text=True
             )
 
-            if result.returncode == 0 and result.stdout.strip():
-                print(f"SUCCESS: Found diff using HEAD^1 ({len(result.stdout)} chars)")
-                return result.stdout
-
-            # אופציה 2: גיבוי למקרה שאנחנו לא ב-Merge Commit (למשל Rebase)
-            print("WARNING: HEAD^1 failed or empty, falling back to origin/main...")
-            subprocess.run(["git", "fetch", "origin", "main"], check=False)
-            cmd_fallback = ["git", "diff", "origin/main", "HEAD"]
-
-            result_fallback = subprocess.run(
-                cmd_fallback,
-                capture_output=True,
-                text=True
-            )
-
-            diff_out = result_fallback.stdout.strip()
-            if diff_out:
-                print(f"SUCCESS: Found diff using origin/main ({len(diff_out)} chars)")
-                return diff_out
-
-            print("WARNING: Git diff is truly empty (checked both methods)")
+            if result.returncode == 0:
+                diff_content = result.stdout.strip()
+                if diff_content:
+                    print(f"SUCCESS: Found diff against origin/main ({len(diff_content)} chars)")
+                    return diff_content
+                else:
+                    print("INFO: No diff found against origin/main (no changes)")
+                    return ""
+            else:
+                print(f"WARNING: Git diff command failed: {result.stderr}")
             return ""
 
         except Exception as e:
