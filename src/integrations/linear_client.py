@@ -11,8 +11,18 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv, find_dotenv
 
-from config.auth_config import load_auth_config
-from src.utils.logger import logger
+try:
+    from config.auth_config import load_auth_config
+    from utils.logger import logger
+except ImportError:
+    # Fallback for CI/CD environments
+    try:
+        from src.config.auth_config import load_auth_config
+        from src.utils.logger import logger
+    except ImportError:
+        import logging
+        logger = logging.getLogger(__name__)
+        load_auth_config = None
 
 # Load .env file before accessing environment variables
 env_path = find_dotenv()

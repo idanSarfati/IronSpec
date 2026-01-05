@@ -1,6 +1,15 @@
 import sys
 from typing import List, Optional, Dict, Any
-from notion_client import Client, APIResponseError
+import logging
+
+# ✅ Defensive Import: מונע קריסה אם הספרייה חסרה
+try:
+    from notion_client import Client, APIResponseError
+    NOTION_AVAILABLE = True
+except ImportError:
+    Client = None
+    APIResponseError = None
+    NOTION_AVAILABLE = False
 
 try:
     from config.auth_config import load_auth_config
@@ -8,21 +17,33 @@ try:
     from utils.logger import logger
 except ImportError:
     # Fallback for when running from different directory
-    from src.config.auth_config import load_auth_config
-    from src.utils.health import is_update_available, get_update_notice
-    from src.utils.logger import logger
+    try:
+        from src.config.auth_config import load_auth_config
+        from src.utils.health import is_update_available, get_update_notice
+        from src.utils.logger import logger
+    except ImportError:
+        # Last resort fallback
+        logger = logging.getLogger(__name__)
 
 # Lazy initialization: Load config and client only when needed
 # This allows validation to run before these are initialized
 _config = None
 _notion_client = None
 
-def _get_notion_client() -> Client:
-    """Lazy initialization of Notion client. Loads config only when first accessed."""
+def _get_notion_client():
+    """Lazy initialization of Notion client with defensive handling."""
     global _config, _notion_client
     if _notion_client is None:
-        _config = load_auth_config()
-        _notion_client = Client(auth=_config.notion_api_key)
+        if not NOTION_AVAILABLE:
+            logger.warning("⚠️ Notion client not available. Using fallback mode.")
+            _notion_client = None
+        else:
+            try:
+                _config = load_auth_config()
+                _notion_client = Client(auth=_config.notion_api_key)
+            except Exception as e:
+                logger.warning(f"Failed to create Notion client: {e}")
+                _notion_client = None
     return _notion_client
 
 # Create a module-level notion object that delegates to the lazy loader
@@ -83,9 +104,13 @@ def _fetch_all_blocks(block_id: str, depth: int = 0) -> List[str]:
 
 def search_notion(query: str) -> str:
     """Enhanced search with automatic keyword simplification fallback."""
+    if not NOTION_AVAILABLE or _get_notion_client() is None:
+        logger.warning("⚠️ Notion client not available. Skipping Notion search.")
+        return "- [page] No Notion search available (client not installed)"
+
     try:
         logger.info(f"Received request for tool: search_notion. Query: {query}")
-        
+
         # 1. Try the full query first
         logger.debug(f"Search attempt 1 with '{query}'")
         response = notion.search(query=query, page_size=5)
