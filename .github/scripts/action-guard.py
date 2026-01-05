@@ -899,17 +899,17 @@ Immediate review required. This PR contains critical violations that may comprom
             )
 
             if response.status_code == 200:
-                data = response.json()
-                if data.get("errors"):
-                    print(f"⚠️ Linear API Error: {data['errors'][0]['message']}")
-                    return False
-                elif data.get("data", {}).get("issueCreate", {}).get("success"):
-                    issue = data["data"]["issueCreate"]["issue"]
-                    print(f"✅ Audit Ticket Created: {issue['title']} ({issue['url']})")
-                    return True
-                else:
-                    print("⚠️ Failed to create ticket (Unknown error).")
-                    return False
+                try:
+                    data = response.json()
+                    if data and data.get('data', {}).get('issueCreate', {}).get('issue'):
+                        issue = data['data']['issueCreate']['issue']
+                        print(f"SUCCESS: Created Linear audit task: {issue.get('url', issue.get('id', 'Unknown'))}")
+                        return True
+                    else:
+                        print(f"ERROR: Linear API returned success but no issue created: {data}")
+                except (ValueError, AttributeError) as e:
+                    print(f"ERROR: Failed to parse Linear API response: {e}")
+                    print(f"Raw response: {response.text[:500]}...")
             else:
                 print(f"ERROR: Failed to create Linear task. Status: {response.status_code}, Response: {response.text}")
                 return False
