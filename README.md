@@ -48,25 +48,26 @@ You should see `founder-os` with a **Green Light** 🟢.
 
 ---
 
-## 🛡️ **Dual Protection System**
+## 🛡️ **Trust Engine: Intelligent Governance**
 
-Founder OS implements **billion-dollar resilience** through dual-layer protection:
+Founder OS implements **intelligent governance** through a dual-layer protection system that balances **security** with **development velocity**:
 
 ### **Phase A: Local Intelligence (Cursor Rules)**
 - AI reads `.cursor/rules/founder-os-governance.mdc` before every interaction
 - **Suggests** compliance but can be bypassed by determined developers
 - **Speed bump** that catches accidental violations
 
-### **Phase B: CI/CD Enforcement (GitHub Actions)**
-- Automatically **blocks PRs** that violate governance rules
-- **Scans code changes** for forbidden libraries, patterns, and architectural violations
-- **Cannot be bypassed** - creates the "Iron Wall" of compliance
+### **Phase B: Trust Engine (GitHub Actions)**
+- **Smart scoring** with 0-100 confidence levels instead of binary blocking
+- **Contextual enforcement** based on violation severity and business needs
+- **Emergency overrides** with full audit trails for justified exceptions
+- **Adaptive thresholds:** Critical violations blocked, suspicious code flagged for review
 
 **Why This Works:**
-- ❌ Developer deletes `.cursor/rules`? CI/CD catches it
-- ❌ AI "forgets" the rules? CI/CD catches it
-- ❌ Human bypasses AI? CI/CD catches it
-- ✅ **Zero violations reach production**
+- ✅ **Critical violations:** Automatically blocked (maintains security)
+- ✅ **Suspicious code:** Warned with override options (preserves velocity)
+- ✅ **Emergency fixes:** Override mechanisms with audit logging (business continuity)
+- ✅ **Zero blind blocking:** AI-powered risk assessment prevents false positives
 
 ### **Technical Implementation:**
 
@@ -76,23 +77,35 @@ Founder OS implements **billion-dollar resilience** through dual-layer protectio
 - Real-time AI guidance during development
 - Speed bump preventing accidental violations
 
-**Phase B (CI/CD Enforcement):**
+**Phase B (Trust Engine):**
 - GitHub Actions workflow: `.github/workflows/action-guard.yml`
 - Python validation script: `.github/scripts/action-guard.py`
-- Dual validation modes: Spec validation + Governance enforcement
-- **AI Analysis:** Gemini API for real-time PR validation
-- Automatic PR blocking with detailed violation reports
+- **Trust Scoring:** 0-100 confidence levels with smart thresholds
+- **Override System:** Label and text-based emergency bypass mechanisms
+- **Audit Logging:** Automatic Linear ticket creation for governance events
+- **AI Analysis:** Gemini API for nuanced risk assessment
+- **Smart Enforcement:** Blocks critical violations, warns on suspicious code
 
-### **GitHub Action Configuration**
+### **Trust Engine Configuration**
 
-The CI/CD enforcement runs automatically on PRs and supports three modes:
+The Trust Engine runs automatically on PRs with intelligent scoring and override capabilities:
 
 ```yaml
 # Set in GitHub repository variables
-VALIDATION_MODE: dual  # Run both Phase A + Phase B (default)
+VALIDATION_MODE: dual  # Run both spec + governance validation (default)
 # VALIDATION_MODE: spec_only    # Only PR-specific spec validation
 # VALIDATION_MODE: governance_only  # Only global governance rules
 ```
+
+#### **Trust Scoring Thresholds:**
+- **0-50:** 🚫 **Critical** - Hard block (security violations, forbidden libraries)
+- **51-80:** ⚠️ **Suspicious** - Soft block with override option
+- **81-100:** ✅ **Safe** - Auto-approve
+
+#### **Override Mechanisms:**
+- **Label Override:** Add `governance-override` label to PR
+- **Text Override:** Include `[override: detailed reason]` in PR description
+- **Audit Trail:** All overrides create Linear tickets for CTO review
 
 **Required Secrets:**
 - `NOTION_TOKEN` - For accessing governance specifications
@@ -183,7 +196,7 @@ The CI/CD system queries your "Source of Truth" to extract:
 - **Security Violations**: Missing validation, XSS protection, CSRF tokens
 - **Architecture Violations**: Non-compliant patterns, missing dependency injection
 
-**Why This Matters:** Even if Notion, Linear, or the AI APIs go down, your codebase remains protected by the Iron Wall of compliance.
+**Why This Matters:** Even if Notion, Linear, or the AI APIs go down, your codebase remains protected by the Trust Engine's intelligent governance.
 
 ### **Dual-LLM Architecture:**
 
@@ -201,15 +214,22 @@ Founder OS uses two AI models for maximum reliability and specialized capabiliti
 - **Task:** Analyze git diffs against specifications, detect forbidden patterns
 - **Fallback:** Conservative blocking when API unavailable
 
-### **Validation Flow:**
+### **Trust Engine Flow:**
 1. **PR opened** → GitHub Action triggers
 2. **Extract governance rules** from Notion + Linear
-3. **Scan code changes** for violations
-4. **AI analysis** of architectural compliance
-5. **Block PR** or **allow merge** based on results
+3. **Check for override conditions** (label or text override)
+4. **If override found** → Log to Linear + approve with audit trail
+5. **If no override** → Run dual validation with trust scoring
+6. **Apply thresholds:** Block critical (0-50), warn suspicious (51-80), pass safe (81-100)
+7. **Post PR comments** with guidance and next steps
 
-### **Bypass Options:**
-- `[SKIP]` in PR title - Skip all validation (infrastructure changes)
+### **Override Options:**
+- **Emergency Override:** Add `governance-override` label (requires justification)
+- **Text Override:** Include `[override: detailed reason]` in PR description
+- **Audit Logging:** All overrides create Linear tickets for CTO review
+
+### **Legacy Options:**
+- `[SKIP]` in PR title - Skip validation (infrastructure changes only)
 - `[FORCE]` in PR title - Override skip logic
 - Infrastructure keywords: `infra`, `ci`, `workflow`, `dependencies`, `setup`
 
