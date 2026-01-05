@@ -70,28 +70,6 @@ class ActionGuard:
             print("   Please check your GEMINI_API_KEY and package installation")
             sys.exit(1)
 
-    def get_pr_title(self) -> str:
-        """Get PR title from GitHub API"""
-        try:
-            # Get PR info from environment (set by GitHub Actions)
-            repo = os.getenv('GITHUB_REPOSITORY')
-            pr_number = os.getenv('PR_NUMBER')
-
-            if not repo or not pr_number:
-                print("ERROR: Could not determine PR details from environment")
-                sys.exit(1)
-
-            url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
-            headers = {'Authorization': f'token {self.github_token}'}
-
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-
-            return response.json()['title']
-        except Exception as e:
-            print(f"ERROR: Failed to get PR title: {e}")
-            sys.exit(1)
-
     def get_pr_details(self) -> Dict[str, Any]:
         """Get full PR details including body and labels from GitHub API"""
         try:
@@ -496,22 +474,26 @@ class ActionGuard:
         """Run only Phase A: Spec validation (Trust Engine scoring)"""
         print("🎯 PHASE: Running Phase A only: Spec Validation (Trust Engine)")
 
-        # Get PR title if not set in environment
-        if not self.pr_title:
-            self.pr_title = self.get_pr_title()
+        # Get PR details
+        pr_details = self.get_pr_details()
+        if not pr_details:
+            print("ERROR: Could not retrieve PR details")
+            sys.exit(1)
+
+        pr_title = pr_details.get('title', '')
 
         # Check if this PR should skip Linear validation
-        if self.should_skip_validation(self.pr_title):
+        if self.should_skip_validation(pr_title):
             print(f"⚠️  Skipping Linear validation for infrastructure change")
-            print(f"   PR Title: {self.pr_title}")
+            print(f"   PR Title: {pr_title}")
             print("✅ SUCCESS: Allowing PR to proceed without specification validation")
             return
 
         # Step 1: Extract Linear Issue ID from PR title
-        issue_id = self.extract_linear_issue_id(self.pr_title)
+        issue_id = self.extract_linear_issue_id(pr_title)
         if not issue_id:
             print("❌ ERROR: Could not extract Linear issue ID from PR title")
-            print(f"   PR Title: {self.pr_title}")
+            print(f"   PR Title: {pr_title}")
             print("   Expected format: [ISSUE-ID] in title (e.g., [ENG-5], [FOS-101])")
             print("   Or add infrastructure keywords to skip validation")
             sys.exit(1)
@@ -609,10 +591,7 @@ class ActionGuard:
 
     def extract_governance_rules(self) -> Optional[Dict[str, Any]]:
         """
-        Extract governance rules using bootstrap_project function
-
-        This generates governance rules on-demand in CI/CD environments
-        where the .mdc file may not exist.
+        Extract governance rules using the centralized governance_extraction module
 
         Returns:
             Dictionary with governance constraints or None if extraction fails
@@ -631,21 +610,14 @@ class ActionGuard:
             if src_path not in sys.path:
                 sys.path.insert(0, src_path)
 
-            # Import and run bootstrap_project to generate governance rules
-            from tools.project_ops import bootstrap_project
-
-            print("Generating governance rules using bootstrap_project...")
-
             # Set required environment variables for the extraction
             os.environ['NOTION_API_KEY'] = self.notion_token
             os.environ['LINEAR_API_KEY'] = self.linear_api_key
 
-            # Use hardcoded fallback directly for CI/CD environments
-            # This ensures we have REAL governance rules even when APIs are unavailable
-            from tools.governance_extraction import GovernanceExtractor
+            # Use the centralized governance extraction module
+            from tools.governance_extraction import extract_governance_data
 
-            extractor = GovernanceExtractor()
-            governance_data = extractor._get_hardcoded_fallback_data()
+            governance_data = extract_governance_data()
 
             if governance_data:
                 print("SUCCESS: Successfully extracted governance rules:")
