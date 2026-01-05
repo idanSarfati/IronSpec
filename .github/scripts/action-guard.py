@@ -109,7 +109,7 @@ class ActionGuard:
             'infra', 'ci', 'workflow', 'github action', 'permissions',
             'dependencies', 'setup', 'config', 'build', 'lint', 'docker',
             'readme', 'documentation', 'chore', 'refactor', 'test', 'fix',
-            'feat', 'style', 'perf', 'revert'
+            'feat', 'style', 'perf', 'revert', 'debug'
         ]
 
         title_lower = pr_title.lower()
@@ -273,9 +273,13 @@ class ActionGuard:
             is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
 
             if is_github_actions:
-                # GitHub Actions PR environment: use merge commit logic
-                print("Running in GitHub Actions - using merge commit diff...")
-                cmd = ["git", "diff", "HEAD^1", "HEAD"]
+                # GitHub Actions PR events: compare against target branch
+                target_branch = os.getenv('GITHUB_BASE_REF', 'main')  # e.g., 'main' or 'master'
+                print(f"Running in GitHub Actions - comparing against target branch: {target_branch}")
+
+                # Fetch the target branch and compare
+                subprocess.run(["git", "fetch", "origin", target_branch], check=False, capture_output=True)
+                cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
             else:
                 # Local testing: fetch and compare against origin/main
                 print("Running locally - fetching origin/main...")
@@ -298,7 +302,7 @@ class ActionGuard:
                     return ""
             else:
                 print(f"WARNING: Git diff command failed: {result.stderr}")
-                return ""
+            return ""
 
         except Exception as e:
             print(f"ERROR: Error getting git diff: {e}")
@@ -668,17 +672,13 @@ class ActionGuard:
             True if compliant, False if violations found
         """
         print("INFO: Validating governance compliance...")
-        print(f"DEBUG: Governance rules received: {governance_rules}")
-        print(f"DEBUG: Git diff preview (first 500 chars): {git_diff[:500]}...")
 
         violations = []
 
         # Check for forbidden libraries
         forbidden_libs = governance_rules.get('FORBIDDEN_LIBRARIES', '')
-        print(f"DEBUG: Forbidden libs string: '{forbidden_libs}'")
         if forbidden_libs and forbidden_libs != 'Unknown/Detect from Codebase':
             forbidden_list = [lib.strip().lower() for lib in forbidden_libs.replace(',', ';').split(';') if lib.strip()]
-            print(f"DEBUG: Forbidden list: {forbidden_list}")
 
             for lib in forbidden_list:
                 if lib in git_diff.lower():
@@ -706,16 +706,12 @@ class ActionGuard:
                     # Check both dependency and import patterns
                     found_violation = False
                     all_patterns = dependency_patterns + import_patterns
-                    print(f"DEBUG: Checking library '{lib}' with patterns: {all_patterns}")
 
                     for pattern in all_patterns:
                         if re.search(pattern, git_diff, re.IGNORECASE | re.MULTILINE):
-                            print(f"DEBUG: MATCH FOUND for pattern '{pattern}'")
                             violations.append(f"BLOCKED: Forbidden library used: {lib}")
                             found_violation = True
                             break
-                        else:
-                            print(f"DEBUG: No match for pattern '{pattern}'")
 
                     if found_violation:
                         break
