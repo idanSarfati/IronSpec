@@ -1,6 +1,6 @@
 
 
-# 🚀 Founder OS (Alpha v0.1)
+# 🚀 Founder OS (Beta v1.0)
 
 Founder OS is an intelligent context bridge that connects your development environment (Cursor) directly to your "Source of Truth" (Notion) and data layer (Supabase).
 
@@ -68,6 +68,21 @@ Founder OS implements **billion-dollar resilience** through dual-layer protectio
 - ❌ Human bypasses AI? CI/CD catches it
 - ✅ **Zero violations reach production**
 
+### **Technical Implementation:**
+
+**Phase A (Local Intelligence):**
+- Cursor Rules V2 structure: `.cursor/rules/founder-os-governance.mdc`
+- Dynamic rule injection via `bootstrap_project` MCP tool
+- Real-time AI guidance during development
+- Speed bump preventing accidental violations
+
+**Phase B (CI/CD Enforcement):**
+- GitHub Actions workflow: `.github/workflows/action-guard.yml`
+- Python validation script: `.github/scripts/action-guard.py`
+- Dual validation modes: Spec validation + Governance enforcement
+- **AI Analysis:** Gemini API for real-time PR validation
+- Automatic PR blocking with detailed violation reports
+
 ### **GitHub Action Configuration**
 
 The CI/CD enforcement runs automatically on PRs and supports three modes:
@@ -82,7 +97,8 @@ VALIDATION_MODE: dual  # Run both Phase A + Phase B (default)
 **Required Secrets:**
 - `NOTION_TOKEN` - For accessing governance specifications
 - `LINEAR_API_KEY` - For task context and priorities
-- `GEMINI_API_KEY` - For AI-powered validation
+- `OPENAI_API_KEY` - For governance rule extraction and normalization
+- `GEMINI_API_KEY` - For CI/CD PR validation analysis
 - `GITHUB_TOKEN` - Auto-provided by GitHub Actions
 
 ---
@@ -137,13 +153,53 @@ The agent will execute the `bootstrap_project` tool, injecting a local `.cursorr
 
 ## 🛡️ Governance Enforcement
 
-The system automatically enforces these constraints from your Notion specifications:
+The system **dynamically extracts** governance rules from your Notion workspace and Linear tasks, ensuring enforcement stays current with your evolving technical specifications.
 
-### **Blocked at CI/CD Level:**
+### **Dynamic Rule Extraction:**
+The CI/CD system queries your "Source of Truth" to extract:
+- **Approved Tech Stack**: Only libraries and frameworks from your Notion specs
+- **Forbidden Libraries**: Any libraries explicitly prohibited in your governance docs
+- **Security Requirements**: Authentication strategies, validation rules, security standards
+- **Architecture Patterns**: Dependency injection, code organization, design principles
+
+### **Fallback Protection System:**
+
+**Billion-Dollar Resilience:** The system maintains full enforcement even when external services fail:
+
+**API Failure Scenarios:**
+- Network outages or API rate limits
+- Invalid or expired API keys
+- Service maintenance or downtime
+- Missing environment variables
+
+**Automatic Fallback Logic:**
+- **Primary**: Extract rules from Notion + Linear APIs (real-time)
+- **Secondary**: Use cached governance data (if available)
+- **Tertiary**: Enforce hardcoded baseline rules (never fails)
+
+**Baseline Enforcement (Always Active):**
 - **Forbidden Libraries**: React, jQuery, Bootstrap, Axios, Lodash, Moment.js
 - **Database Restrictions**: SQLite, MongoDB (Redis allowed for cache only)
 - **Security Violations**: Missing validation, XSS protection, CSRF tokens
 - **Architecture Violations**: Non-compliant patterns, missing dependency injection
+
+**Why This Matters:** Even if Notion, Linear, or the AI APIs go down, your codebase remains protected by the Iron Wall of compliance.
+
+### **Dual-LLM Architecture:**
+
+Founder OS uses two AI models for maximum reliability and specialized capabilities:
+
+**🤖 OpenAI (GPT Models):**
+- **Purpose:** Governance rule extraction and normalization
+- **When Used:** Bootstrap project, refresh governance rules
+- **Task:** Convert unstructured Notion/Linear data into structured governance rules
+- **Fallback:** Safe defaults when API unavailable
+
+**🤖 Gemini (Flash Models):**
+- **Purpose:** Real-time code validation and compliance checking
+- **When Used:** CI/CD PR validation, architectural violation detection
+- **Task:** Analyze git diffs against specifications, detect forbidden patterns
+- **Fallback:** Conservative blocking when API unavailable
 
 ### **Validation Flow:**
 1. **PR opened** → GitHub Action triggers
@@ -190,12 +246,9 @@ If the system ignores your context or behaves unexpectedly, we have a built-in l
 
 
 * **Linear API Key:** (Optional) Add to `.env` to enable task management.
+* **AI API Keys:** Add `OPENAI_API_KEY` and `GEMINI_API_KEY` to `.env` for full AI-powered governance.
 
 ---
-
-## 🎨 UI Specifications
-
-The login button should be purple (#800080) for maximum visibility and better user interaction.
 
 ## 🛡 License
 
