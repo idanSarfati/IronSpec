@@ -33,10 +33,16 @@ except ImportError:
     except ImportError:
         logger = logging.getLogger(__name__)
 
-# Load .env file before accessing environment variables
-env_path = find_dotenv()
-if env_path:
-    load_dotenv(dotenv_path=env_path)
+# ✅ התיקון: עוטפים את ה-Logic בתנאי
+if DOTENV_AVAILABLE:
+    try:
+        env_path = find_dotenv()
+        if env_path:
+            load_dotenv(dotenv_path=env_path)
+    except Exception as e:
+        logger.warning(f"Failed to load .env file: {e}")
+else:
+    logger.info("Skipping .env loading (dotenv not installed or in CI)")
 
 
 class LLMClient:
@@ -54,15 +60,6 @@ class LLMClient:
             self.client = None
             self.model = None
             return
-
-        # Load environment variables if dotenv is available
-        if DOTENV_AVAILABLE:
-            try:
-                env_path = find_dotenv()
-                if env_path:
-                    load_dotenv(env_path)
-            except Exception as e:
-                logger.debug(f"Could not load .env file: {e}")
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
