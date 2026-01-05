@@ -725,10 +725,29 @@ class ActionGuard:
         governance_rules = self.extract_governance_rules()
         if governance_rules:
             git_diff = self.get_git_diff()
-            if git_diff:
-                governance_passed = self.validate_governance_compliance(git_diff, governance_rules)
-            else:
-                governance_passed = True  # No changes = compliant
+
+            # --- תיקון: קריאה ישירה של requirements.txt ---
+            deps_content = ""
+            if os.path.exists("requirements.txt"):
+                try:
+                    with open("requirements.txt", "r") as f:
+                        deps_content = f.read()
+                    print(f"📦 Loaded requirements.txt ({len(deps_content)} chars)")
+                except Exception as e:
+                    print(f"⚠️ Could not read requirements.txt: {e}")
+
+            # בניית הקונטקסט המלא ל-AI
+            # אנחנו אומרים לו: "הנה השינויים בקוד, אבל הנה גם רשימת התלויות המלאה!"
+            full_context_for_validation = f"""
+GIT DIFF CHECK:
+{git_diff if git_diff else "No code changes detected in diff."}
+
+FULL DEPENDENCY CHECK (requirements.txt):
+{deps_content if deps_content else "No requirements.txt found."}
+"""
+
+            # Use the full context (not just git diff) for validation
+            governance_passed = self.validate_governance_compliance(full_context_for_validation, governance_rules)
         else:
             print("ERROR: Governance extraction failed - cannot enforce rules")
             governance_passed = False
