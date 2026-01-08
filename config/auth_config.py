@@ -1,5 +1,5 @@
 """
-Authentication and database configuration for Founder OS.
+Authentication and database configuration for IronSpec.
 
 This module centralizes access to environment variables required for Clerk,
 Supabase, and Notion.

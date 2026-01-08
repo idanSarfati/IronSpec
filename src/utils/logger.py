@@ -1,8 +1,8 @@
 """
-Flight Recorder: Centralized logging system for Founder OS MCP Server.
+Flight Recorder: Centralized logging system for IronSpec MCP Server.
 
 This module provides a configured logger that writes to both:
-1. File: founder_os.log (in project root) - for persistent debugging
+1. File: iron_spec.log (in project root) - for persistent debugging
 2. Console: stdout - for real-time visibility
 
 Privacy Rules:
@@ -13,7 +13,7 @@ CLI Design System Colors:
 - Success: Green (SUCCESS, VERIFIED)
 - Error/Block: Red (BLOCKED, VIOLATION)
 - Info/Log: Dimmed Gray
-- Highlight/Key: Purple (#b026ff) for "Founder OS" branding
+- Highlight/Key: Purple (#b026ff) for "IronSpec" branding
 - Warning: Yellow
 """
 
@@ -28,7 +28,7 @@ COLOR_RESET = "\033[0m"
 COLOR_GREEN = "\033[92m"    # Success
 COLOR_RED = "\033[91m"      # Error/Block
 COLOR_YELLOW = "\033[93m"   # Warning
-COLOR_PURPLE = "\033[95m"   # Highlight/Key (Founder OS branding)
+COLOR_PURPLE = "\033[95m"   # Highlight/Key (IronSpec branding)
 COLOR_GRAY = "\033[90m"     # Info/Log (Dimmed Gray)
 
 
@@ -66,12 +66,12 @@ def _sanitize_message(message: str) -> str:
     return sanitized
 
 
-def setup_logger(name: str = "founder-os") -> logging.Logger:
+def setup_logger(name: str = "iron-spec") -> logging.Logger:
     """
-    Configure and return a logger instance for Founder OS.
+    Configure and return a logger instance for IronSpec.
     
     Args:
-        name: Logger name (default: "founder-os")
+        name: Logger name (default: "iron-spec")
         
     Returns:
         Configured logger instance
@@ -87,11 +87,11 @@ def setup_logger(name: str = "founder-os") -> logging.Logger:
     
     logger.setLevel(logging.INFO)
 
-    # CLI Design System Formatter: [FounderOS] Message (with colors for console)
+    # CLI Design System Formatter: [IronSpec] Message (with colors for console)
     class ColorFormatter(logging.Formatter):
         def format(self, record):
-            # Base format with [FounderOS] prefix
-            formatted_message = f"[FounderOS] {record.getMessage()}"
+            # Base format with [IronSpec] prefix
+            formatted_message = f"[IronSpec] {record.getMessage()}"
 
             # Add colors for console output (but not file output)
             if record.levelno >= logging.ERROR:
@@ -103,8 +103,8 @@ def setup_logger(name: str = "founder-os") -> logging.Logger:
             elif record.levelno >= logging.DEBUG:
                 formatted_message = f"{COLOR_GRAY}{formatted_message}{COLOR_RESET}"
 
-            # For branding/highlights, check for "Founder OS" in message
-            if "Founder OS" in formatted_message or "FounderOS" in formatted_message:
+            # For branding/highlights, check for "IronSpec" in message
+            if "IronSpec" in formatted_message:
                 # Replace existing colors with purple for branding
                 formatted_message = formatted_message.replace(COLOR_RED, COLOR_PURPLE)
                 formatted_message = formatted_message.replace(COLOR_YELLOW, COLOR_PURPLE)
@@ -115,10 +115,10 @@ def setup_logger(name: str = "founder-os") -> logging.Logger:
 
     formatter = ColorFormatter()
     
-    # Handler 1: File output (founder_os.log in project root)
+    # Handler 1: File output (iron_spec.log in project root)
     # Get project root (where server.py is located)
     project_root = Path(__file__).parent.parent.parent
-    log_file = project_root / "founder_os.log"
+    log_file = project_root / "iron_spec.log"
     
     # Rotating file handler: max 5MB per file, keep 3 backup files
     file_handler = RotatingFileHandler(

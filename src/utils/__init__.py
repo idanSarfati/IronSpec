@@ -1,4 +1,4 @@
 """
-Utility modules for Founder OS MCP.
+Utility modules for IronSpec MCP.
 """
 

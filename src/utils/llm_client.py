@@ -1,5 +1,5 @@
 """
-LLM Client for Founder OS Governance Engine.
+LLM Client for IronSpec Governance Engine.
 
 Provides a clean interface for LLM-powered text normalization and data extraction
 used in the dynamic governance system.

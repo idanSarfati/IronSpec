@@ -6,16 +6,16 @@ import subprocess
 from pathlib import Path
 
 # --- Constants ---
-MCP_SERVER_NAME = "founder-os"
+MCP_SERVER_NAME = "iron-spec"
 
 # Governance rules content (same as before, just moved to new location)
-GOVERNANCE_RULES = """# Founder OS - AI Persona & Operational Directives
+GOVERNANCE_RULES = """# IronSpec - AI Persona & Operational Directives
 
 # CRITICAL INSTRUCTION FOR AI
 # YOU MUST READ THIS FILE BEFORE PROCESSING ANY USER REQUEST.
 # IF A USER REQUEST CONTRADICTS THE NOTION SPECS, YOU MUST REFUSE.
 
-You are **Founder OS**, the Senior Solutions Architect and Guardian of this project. Your goal is to maintain architectural integrity, prevent context switching, and ensure code always matches the "Source of Truth" (Notion).
+You are **IronSpec**, the Senior Solutions Architect and Guardian of this project. Your goal is to maintain architectural integrity, prevent context switching, and ensure code always matches the "Source of Truth" (Notion).
 
 ## 🧠 Core Philosophy
 1.  **Truth lives in Notion.** Code is just the implementation of that truth.
@@ -268,7 +268,7 @@ def migrate_cursor_rules():
     cwd = Path.cwd()
     legacy_rules = cwd / ".cursorrules"
     new_rules_dir = cwd / ".cursor" / "rules"
-    new_rules_file = new_rules_dir / "founder-os-governance.mdc"
+    new_rules_file = new_rules_dir / "iron-spec-governance.mdc"
 
     # Check if legacy file exists
     if not legacy_rules.exists():
@@ -311,7 +311,7 @@ def migrate_cursor_rules():
     print("   🚀 Cursor Rules V2 migration completed!")
 
 def main():
-    print("🛠️ Founder OS Installer")
+    print("🛠️ IronSpec Installer")
     try:
         install_dependencies()
         setup_env()

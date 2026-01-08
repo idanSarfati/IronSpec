@@ -1,8 +1,8 @@
 """
-Project operations and bootstrap functionality for Founder OS.
+Project operations and bootstrap functionality for IronSpec.
 
 This module handles project initialization tasks, including installing
-the Founder OS 'Brain' (.cursor/rules/founder-os-governance.mdc) into target directories.
+the IronSpec 'Brain' (.cursor/rules/iron-spec-governance.mdc) into target directories.
 Supports Cursor Rules V2 structure with dynamic governance extraction.
 """
 
@@ -30,7 +30,7 @@ except ImportError:
 
 def bootstrap_project(target_dir: str) -> str:
     """
-    INITIALIZE COMMAND: Installs the Founder OS 'Brain' (.cursor/rules/founder-os-governance.mdc) into the specified project folder.
+    INITIALIZE COMMAND: Installs the IronSpec 'Brain' (.cursor/rules/iron-spec-governance.mdc) into the specified project folder.
     Supports Cursor Rules V2 structure with dynamic governance extraction from Notion and Linear.
 
     This function:
@@ -51,7 +51,7 @@ def bootstrap_project(target_dir: str) -> str:
         # Clean the path and set up new structure
         abs_target_dir = os.path.abspath(target_dir)
         rules_dir = os.path.join(abs_target_dir, ".cursor", "rules")
-        target_path = os.path.join(rules_dir, "founder-os-governance.mdc")
+        target_path = os.path.join(rules_dir, "iron-spec-governance.mdc")
 
         # Check for legacy .cursorrules file in project directory
         legacy_path = os.path.join(abs_target_dir, ".cursorrules")
@@ -113,7 +113,7 @@ def bootstrap_project(target_dir: str) -> str:
 
         logger.info(f"Bootstrap completed successfully. Installed at: {target_path}")
         action = "migrated and installed" if migrated_legacy else "installed"
-        return f"✅ Governance Active: {rules_summary}. Founder OS 'Brain' {action} at: {target_path}"
+        return f"✅ Governance Active: {rules_summary}. IronSpec 'Brain' {action} at: {target_path}"
     except Exception as e:
         logger.exception(f"Failed to bootstrap project at {target_dir}")
         return f"❌ Error initializing: {str(e)}"
@@ -138,7 +138,7 @@ def refresh_governance_rules(target_dir: str) -> str:
         # Clean the path and locate existing rules
         abs_target_dir = os.path.abspath(target_dir)
         rules_dir = os.path.join(abs_target_dir, ".cursor", "rules")
-        target_path = os.path.join(rules_dir, "founder-os-governance.mdc")
+        target_path = os.path.join(rules_dir, "iron-spec-governance.mdc")
 
         # Check if rules file exists
         if not os.path.exists(target_path):

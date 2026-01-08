@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Founder OS Action Guard - Entrypoint Script
+# IronSpec Action Guard - Entrypoint Script
 # This script provides a clean, auditable interface to action-guard.py
 # No complex logic here - just parameter validation and environment setup
 
-echo "🔍 Starting Founder OS Action Guard validation..."
+echo "🔍 Starting IronSpec Action Guard validation..."
 
 # Validate required environment variables
 if [[ -z "${NOTION_TOKEN:-}" ]]; then

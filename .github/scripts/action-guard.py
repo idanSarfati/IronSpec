@@ -940,7 +940,7 @@ Immediate review required. This PR contains critical violations that may comprom
         - governance-override label
         - [override: reason] in PR body
         """
-        print("🚀 STARTING: Founder OS Trust Engine Validation")
+        print("🚀 STARTING: IronSpec Trust Engine Validation")
         print("   Phase A: Spec Validation (Trust Scoring)")
         print("   Phase B: Governance Enforcement (Trust Scoring)")
         print("   Phase C: Risk Assessment & Override Processing")

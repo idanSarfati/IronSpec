@@ -1,5 +1,5 @@
 """
-Semantic Data Extraction for Founder OS Governance Engine.
+Semantic Data Extraction for IronSpec Governance Engine.
 
 Extracts and normalizes unstructured architectural data from Notion and Linear
 to generate dynamic governance rules.

@@ -52,8 +52,8 @@ except (ValueError, ImportError) as e:
     logger.info("Add LINEAR_API_KEY to enable Linear tools")
 
 # 3. Initialize Server
-mcp = FastMCP("Founder OS")
-logger.info("MCP server initialized: Founder OS")
+mcp = FastMCP("IronSpec")
+logger.info("MCP server initialized: IronSpec")
 
 # 4. Register Core Tools (Always Available)
 mcp.add_tool(search_notion)

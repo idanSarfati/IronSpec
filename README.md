@@ -1,23 +1,23 @@
 
 
-# 🚀 Founder OS (Beta v1.0)
+# 🚀 IronSpec (Beta v1.0)
 
-Founder OS is an intelligent context bridge that connects your development environment (Cursor) directly to your "Source of Truth" (Notion) and data layer (Supabase).
+IronSpec is an intelligent context bridge that connects your development environment (Cursor) directly to your "Source of Truth" (Notion) and data layer (Supabase).
 
-It eliminates context switching by granting your AI agent real-time access to technical specifications, roadmaps, and architectural governance. With Founder OS, the AI doesn't just write code—it follows your project's "Constitution."
+It eliminates context switching by granting your AI agent real-time access to technical specifications, roadmaps, and architectural governance. With IronSpec, the AI doesn't just write code—it follows your project's "Constitution."
 
 ---
 
 ## ⚡ Dual-Track Installation (Choose Your Path)
 
-Founder OS supports two installation methods based on your security and compliance requirements.
+IronSpec supports two installation methods based on your security and compliance requirements.
 
 ### Option A: Quick Start (Marketplace Installation)
 *For small teams and individual developers*
 
 ```bash
 # Coming Soon: One-click marketplace installation
-# Visit: https://github.com/marketplace/founder-os
+# Visit: https://github.com/marketplace/iron-spec
 ```
 
 **Benefits:**
@@ -34,8 +34,8 @@ Founder OS supports two installation methods based on your security and complian
 
 ```bash
 # Fork this repository to your organization
-git clone https://github.com/YOUR-ORG/founder-os-mcp.git
-cd founder-os-mcp
+git clone https://github.com/YOUR-ORG/iron-spec-mcp.git
+cd iron-spec-mcp
 
 # Run security audit before installation
 ./audit_check.sh
@@ -81,7 +81,7 @@ python install_script.py
 - **Local Processing**: All governance rules are processed locally when possible
 
 ### Network Communications
-Founder OS communicates only with declared APIs:
+IronSpec communicates only with declared APIs:
 - **Linear API**: Task context and project priorities
 - **Notion API**: Technical specifications and governance rules
 - **OpenAI/Gemini API**: AI-powered code analysis (logic metadata only)
@@ -98,10 +98,10 @@ For SOC2-compliant deployments, use Option B (Fork-to-Own) installation:
 
 ## 🛡️ **Trust Engine: Intelligent Governance**
 
-Founder OS implements **intelligent governance** through a dual-layer protection system that balances **security** with **development velocity**:
+IronSpec implements **intelligent governance** through a dual-layer protection system that balances **security** with **development velocity**:
 
 ### **Phase A: Local Intelligence (Cursor Rules)**
-- AI reads `.cursor/rules/founder-os-governance.mdc` before every interaction
+- AI reads `.cursor/rules/iron-spec-governance.mdc` before every interaction
 - **Suggests** compliance but can be bypassed by determined developers
 - **Speed bump** that catches accidental violations
 
@@ -120,7 +120,7 @@ Founder OS implements **intelligent governance** through a dual-layer protection
 ### **Technical Implementation:**
 
 **Phase A (Local Intelligence):**
-- Cursor Rules V2 structure: `.cursor/rules/founder-os-governance.mdc`
+- Cursor Rules V2 structure: `.cursor/rules/iron-spec-governance.mdc`
 - Dynamic rule injection via `bootstrap_project` MCP tool
 - Real-time AI guidance during development
 - Speed bump preventing accidental violations
@@ -190,7 +190,7 @@ Run this in your terminal:
 Whenever you start a new coding session, open the Composer (`Cmd/Ctrl + I`) and type:
 
 ```
-"Initialize Founder OS"
+"Initialize IronSpec"
 
 ```
 
@@ -200,7 +200,7 @@ The agent will execute the `bootstrap_project` tool, injecting a local `.cursorr
 ## ✅ Trust & Verification
 
 ### GitHub Verified Creator Program
-Founder OS is committed to security and transparency. We have applied for GitHub's Verified Creator program to provide additional trust signals:
+IronSpec is committed to security and transparency. We have applied for GitHub's Verified Creator program to provide additional trust signals:
 
 - **Application Status**: Submitted and under review
 - **Verification Benefits**: Official badges and enhanced security guarantees
@@ -274,7 +274,7 @@ The CI/CD system queries your "Source of Truth" to extract:
 
 ### **Dual-LLM Architecture:**
 
-Founder OS uses two AI models for maximum reliability and specialized capabilities:
+IronSpec uses two AI models for maximum reliability and specialized capabilities:
 
 **🤖 OpenAI (GPT Models):**
 - **Purpose:** Governance rule extraction and normalization
@@ -323,7 +323,7 @@ If you added your Linear API Key, you can manage tasks directly from the chat:
 If the system ignores your context or behaves unexpectedly, we have a built-in logging system.
 
 1. **Don't panic.** The system records its decision-making process.
-2. Locate the file `founder_os.log` in the project root folder.
+2. Locate the file `iron_spec.log` in the project root folder.
 3. Send this file to the support team.
 * *Note: API Keys and sensitive tokens are automatically masked in the logs for your privacy.*
 
@@ -336,7 +336,7 @@ If the system ignores your context or behaves unexpectedly, we have a built-in l
 * **Python 3.10+**
 * **Notion Integration:**
 * Create an internal integration at [Notion My Integrations](https://www.notion.so/my-integrations).
-* **Grant Access:** You MUST share each specific Notion page with your integration (`...` -> `Connections` -> `Connect to` -> `Founder OS`).
+* **Grant Access:** You MUST share each specific Notion page with your integration (`...` -> `Connections` -> `Connect to` -> `IronSpec`).
 
 
 * **Linear API Key:** (Optional) Add to `.env` to enable task management.
@@ -346,5 +346,5 @@ If the system ignores your context or behaves unexpectedly, we have a built-in l
 
 ## 🛡 License
 
-Internal Use Only - Founder OS Proprietary.
+Internal Use Only - IronSpec Proprietary.
 

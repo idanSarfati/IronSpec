@@ -1,12 +1,12 @@
 """
-Governance Template for Founder OS Hybrid Enforcement.
+Governance Template for IronSpec Hybrid Enforcement.
 
 This module defines the structure for dynamic governance rules that are injected
-into the .cursor/rules/founder-os-governance.mdc file based on data extracted
+into the .cursor/rules/iron-spec-governance.mdc file based on data extracted
 from Notion and Linear sources.
 """
 
-GOVERNANCE_TEMPLATE = """# Founder OS - Dynamic Governance Engine
+GOVERNANCE_TEMPLATE = """# IronSpec - Dynamic Governance Engine
 # ⚠️  CRITICAL: This file is AUTO-GENERATED. Do NOT edit manually.
 # ⚠️  Source of Truth: Notion Specs + Linear Tasks
 # ⚠️  Last Updated: {GENERATION_TIMESTAMP}

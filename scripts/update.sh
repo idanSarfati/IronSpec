@@ -1,6 +1,6 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-echo "🚀 Updating Founder OS..."
+echo "🚀 Updating IronSpec..."
 git pull
 if [ $? -eq 0 ]; then
     echo "✅ Code updated!"

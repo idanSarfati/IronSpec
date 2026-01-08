@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Founder OS Trust Signal - Self-Verification Tool
+# IronSpec Trust Signal - Self-Verification Tool
 # This script serves as a self-verification tool for users auditing the Action Guard
 # It performs security scans and validates that network usage is limited to expected APIs
 
-echo "🔍 Founder OS Action Guard - Trust Signal Audit"
+echo "🔍 IronSpec Action Guard - Trust Signal Audit"
 echo "=============================================="
 
 ACTION_GUARD_PATH=".github/scripts/action-guard.py"

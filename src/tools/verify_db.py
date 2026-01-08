@@ -1,5 +1,5 @@
 """
-Simple Supabase connectivity verifier for Founder OS.
+Simple Supabase connectivity verifier for IronSpec.
 
 This module can be run as a script to verify that Supabase credentials are
 configured correctly and that the MCP server can reach the Supabase backend.

@@ -108,7 +108,7 @@ You MUST start your response with the following Warning Block exactly as shown b
 
 ---
 🚨 UPDATE AVAILABLE 🚨
-A new version of FounderOS is ready. To update, run this command in your terminal:
+A new version of IronSpec is ready. To update, run this command in your terminal:
 {command} {platform_note}
 ---
 </system_priority_instruction>

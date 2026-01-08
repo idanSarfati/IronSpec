@@ -1,5 +1,5 @@
 """
-Supabase client initialization for Founder OS.
+Supabase client initialization for IronSpec.
 
 This module centralizes creation of a Supabase client using configuration
 loaded from `auth_config`. Other parts of the application should import

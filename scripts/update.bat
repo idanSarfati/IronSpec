@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-echo 🚀 Updating Founder OS...
+echo 🚀 Updating IronSpec...
 git pull
 if %ERRORLEVEL% EQU 0 (
     echo ✅ Code updated!
