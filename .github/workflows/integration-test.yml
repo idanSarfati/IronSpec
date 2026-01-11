@@ -1,0 +1,24 @@
+name: Integration Test (Dogfooding)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-action:
+    runs-on: ubuntu-latest
+    name: Test IronSpec Action
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Run IronSpec (Self-Test)
+        uses: ./ # Runs the Action from the current local code
+        with:
+          # Here we verify that the Inputs are correctly defined and reach the code
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          linear_api_key: ${{ secrets.LINEAR_API_KEY }}
+          notion_api_key: ${{ secrets.NOTION_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
