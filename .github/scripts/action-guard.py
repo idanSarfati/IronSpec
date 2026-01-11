@@ -18,6 +18,13 @@ import time
 from typing import Optional, Dict, Any, List
 
 try:
+    from notion_client import Client
+    NOTION_CLIENT_AVAILABLE = True
+except ImportError:
+    NOTION_CLIENT_AVAILABLE = False
+    print("WARNING: notion_client package not available. Auto-discovery will be disabled.")
+
+try:
     import google.genai as genai
     USE_NEW_PACKAGE = True
 except ImportError:
@@ -407,6 +414,80 @@ If the code violates a rule, you must BLOCK it.
 
         except Exception as e:
             print(f"ERROR: Failed to fetch Notion page: {e}")
+            return None
+
+    def auto_discover_spec_page(self, repo_name: str) -> Optional[str]:
+        """
+        Searches Notion for the most relevant Spec/Architecture page
+        accessible to this integration.
+        """
+        if not NOTION_CLIENT_AVAILABLE:
+            print("⚠️ notion_client not available. Cannot use auto-discovery.")
+            return None
+        
+        if not self.notion_token:
+            print("⚠️ NOTION_TOKEN not set. Cannot use auto-discovery.")
+            return None
+
+        print(f"🕵️ Auto-Discovering Notion context for repo: '{repo_name}'...")
+        
+        try:
+            # Initialize Notion client
+            notion_client = Client(auth=self.notion_token)
+            
+            # 1. Search for all pages the integration has access to
+            response = notion_client.search(
+                filter={"property": "object", "value": "page"},
+                page_size=10
+            )
+            results = response.get("results", [])
+            
+            if not results:
+                print("❌ No pages found! Did you 'Connect' the IronSpec integration to your Notion page?")
+                return None
+
+            print(f"   🔎 Found {len(results)} accessible pages. Analyzing relevance...")
+
+            best_match = None
+            
+            # 2. Ranking Logic
+            for page in results:
+                page_id = page['id']
+                title = "Untitled"
+                
+                # Extract title (Notion structure is messy)
+                try:
+                    props = page.get('properties', {})
+                    # Try standard 'title' property
+                    for key, val in props.items():
+                        if val.get('type') == 'title' and val.get('title'):
+                            title = val['title'][0]['plain_text']
+                            break
+                except:
+                    pass
+                
+                print(f"      - Found page: '{title}' ({page_id})")
+
+                # Priority 1: Exact match or contains Repo Name
+                if repo_name.lower() in title.lower():
+                    print(f"      ✅ High Confidence Match: '{title}' contains repo name.")
+                    return page_id
+                
+                # Priority 2: Keywords like "Spec", "Architecture", "Rules"
+                if any(kw in title.lower() for kw in ["spec", "architecture", "governance", "rules"]):
+                    best_match = page_id
+            
+            # Return best match or just the first page found (Fallback)
+            if best_match:
+                print(f"   ✅ Selected best match by keyword: {best_match}")
+                return best_match
+            
+            if results:
+                print(f"   ⚠️ No specific keywords matched. Defaulting to first accessible page.")
+                return results[0]['id']
+
+        except Exception as e:
+            print(f"   ⚠️ Discovery failed: {e}")
             return None
 
     def get_git_diff(self):
@@ -1125,6 +1206,24 @@ A Linear audit task has been created for CTO review. The override will be review
             print("✅ OVERRIDE PROCESSED: PR allowed to proceed")
             return
 
+        # Initialize Notion context discovery (for governance)
+        repo_name = pr_details.get('repo', 'unknown')
+        if '/' in repo_name:
+            repo_name = repo_name.split('/')[-1]  # Extract just the repo name from owner/repo
+        
+        notion_page_id = None
+        if self.notion_token:
+            try:
+                notion_page_id = self.auto_discover_spec_page(repo_name)
+                if notion_page_id:
+                    print(f"🚀 Governance Context Locked: Notion Page {notion_page_id}")
+                    # Set as environment variable for governance extraction module
+                    os.environ['NOTION_PAGE_ID'] = notion_page_id
+                else:
+                    print("⚠️ No Notion context found via auto-discovery. Governance will run in fallback mode (Generic Rules).")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Notion auto-discovery: {e}")
+
         # Phase A: Spec Validation with Trust Scoring
         print("\n" + "="*60)
         print("🎯 PHASE A: SPEC VALIDATION (Trust Scoring)")
@@ -1143,11 +1242,16 @@ A Linear audit task has been created for CTO review. The override will be review
                 if not issue:
                     spec_score = {"confidence_score": 10, "severity": "CRITICAL", "reasoning": "Linear issue not found", "violation_type": "INVALID_ISSUE"}
                 else:
-                    notion_page_id = self.extract_notion_page_id(issue.get('description', ''))
-                    if not notion_page_id:
-                        spec_score = {"confidence_score": 10, "severity": "CRITICAL", "reasoning": "No Notion page link in Linear issue", "violation_type": "MISSING_SPEC"}
+                    notion_page_id_spec = self.extract_notion_page_id(issue.get('description', ''))
+                    # Try auto-discovery as fallback if manual extraction failed
+                    if not notion_page_id_spec:
+                        print("⚠️ No Notion page link in Linear issue. Trying auto-discovery...")
+                        notion_page_id_spec = self.auto_discover_spec_page(repo_name)
+                    
+                    if not notion_page_id_spec:
+                        spec_score = {"confidence_score": 10, "severity": "CRITICAL", "reasoning": "No Notion page found (manual or auto-discovery)", "violation_type": "MISSING_SPEC"}
                     else:
-                        spec_content = self.fetch_notion_page(notion_page_id)
+                        spec_content = self.fetch_notion_page(notion_page_id_spec)
                         if not spec_content:
                             spec_score = {"confidence_score": 10, "severity": "CRITICAL", "reasoning": "Could not fetch Notion specification", "violation_type": "FETCH_ERROR"}
                         else:
