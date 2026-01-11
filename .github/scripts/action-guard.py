@@ -30,6 +30,51 @@ except ImportError:
 
 
 class ActionGuard:
+    # Hostile Auditor prompt for aggressive compliance checking
+    SYSTEM_VAL_PROMPT = """
+You are the **IronSpec Governance Engine**. You are NOT a code assistant. You are a **Ruthless Compliance Auditor**.
+Your Goal: Protect the Production Environment from "Spec Drift" and "Logic Violations".
+
+### THE INPUTS
+1. **Governance Rules (The Law):**
+{governance_context}
+
+2. **The Code Change (The Suspect):**
+{diff}
+
+### YOUR MISSION
+Analyze the code diff against the Governance Rules. You must be aggressive.
+If the code violates a rule, you must BLOCK it.
+
+### ANALYSIS PROTOCOL (Chain of Thought)
+1. **Scan Imports:** Does the code import a forbidden library? (e.g., importing 'axios' when 'apiClient' wrapper is required).
+2. **Scan Primitives:** Does the code use raw primitives (like `fetch`, `console.log`, direct DB queries) when a specific Wrapper or Utility is mandated?
+   - *CRITICAL RULE:* If the spec says "Use apiClient", finding `fetch()` or `axios.get()` is an immediate Critical Violation.
+3. **Scan Logic:** Does the code skip required steps? (e.g., missing `verifyAuth()` before data access).
+4. **Scan Architecture:** Is code in the wrong layer? (e.g., DB calls inside a UI component).
+
+### SCORING SYSTEM (0-100)
+- **100:** Perfect compliance.
+- **80-99:** Safe, but minor style issues.
+- **50-79:** Suspicious (Warning).
+- **0-49:** CRITICAL VIOLATION (Block).
+
+### OUTPUT FORMAT (JSON ONLY)
+{{
+    "score": <int>,
+    "status": "PASS" | "WARN" | "BLOCK",
+    "violations": [
+        {{
+            "severity": "CRITICAL" | "WARNING",
+            "file": "<filename>",
+            "line": <line_number_approx>,
+            "message": "<Explain exactly why this is a violation. Reference the specific Spec rule broken.>"
+        }}
+    ],
+    "reasoning": "<Brief summary of your analysis>"
+}}
+"""
+
     def __init__(self):
         self.pr_title = os.getenv('PR_TITLE', '')
         self.pr_number = os.getenv('PR_NUMBER', '')
@@ -355,36 +400,25 @@ class ActionGuard:
         # Skip LLM validation if no API key was provided
         if self.client is None and self.model is None:
             print("WARNING:  Skipping LLM validation (no API key configured)")
-            return {"confidence_score": 85, "severity": "LOW", "reasoning": "LLM validation skipped - no API key", "violation_type": "NONE"}
+            return {
+                "confidence_score": 85,
+                "severity": "LOW",
+                "reasoning": "LLM validation skipped - no API key",
+                "violation_type": "NONE",
+                "score": 85,
+                "status": "PASS",
+                "violations": []
+            }
 
-        # שימוש ב-Alias שראינו בלוגים שקיים בוודאות
-        # מודל זה הוא יציב וחסכוני יותר במכסות מגרסה 2.0
+        # Using the alias model that exists in logs for sure
+        # This model is more stable and cost-effective in quotas than version 2.0
         model_name = "gemini-flash-latest"
 
-        prompt = f"""
-        You are a Senior Tech Lead validating a PR with Trust Scoring.
-
-        Specification from Notion:
-        {spec_content}
-
-        Code Changes (Git Diff):
-        {git_diff}
-
-        Task: Assign a confidence score (0-100) based on how well the code matches the specification.
-
-        Scoring Guidelines:
-        - 0-50 (CRITICAL): Code violates specification, contains security issues, or implements wrong requirements
-        - 51-80 (HIGH): Code mostly matches but has significant issues, edge cases not handled, or architectural concerns
-        - 81-100 (LOW): Code properly implements requirements with minor or no issues
-
-        Output only JSON in this format:
-        {{
-            "confidence_score": 65,
-            "severity": "MEDIUM",
-            "reasoning": "Brief explanation of the score",
-            "violation_type": "ARCHITECTURAL_PATTERN"
-        }}
-        """
+        # Use the Hostile Auditor prompt
+        prompt = self.SYSTEM_VAL_PROMPT.format(
+            governance_context=spec_content,
+            diff=git_diff
+        )
 
         max_retries = 3
         for attempt in range(max_retries):
@@ -408,26 +442,55 @@ class ActionGuard:
                     parsed = json.loads(result)
                 except json.JSONDecodeError:
                     # Fallback scoring if JSON parsing fails
-                    parsed = {"confidence_score": 30, "severity": "CRITICAL", "reasoning": f"JSON parsing failed: {result[:100]}", "violation_type": "VALIDATION_ERROR"}
+                    parsed = {"score": 30, "status": "BLOCK", "violations": [], "reasoning": f"JSON parsing failed: {result[:100]}"}
 
-                # Ensure we have valid score data
-                confidence_score = parsed.get("confidence_score", 50)
-                severity = parsed.get("severity", "MEDIUM")
+                # Map new format (score, status, violations, reasoning) to existing format
+                # New format: score, status (PASS/WARN/BLOCK), violations[], reasoning
+                # Existing format: confidence_score, severity, reasoning, violation_type
+                score = parsed.get("score", 50)
+                status = parsed.get("status", "WARN")
+                violations = parsed.get("violations", [])
                 reasoning = parsed.get("reasoning", "No reasoning provided")
-                violation_type = parsed.get("violation_type", "UNKNOWN")
 
-                # Write result to file for workflow to read
+                # Map status to severity
+                status_to_severity = {
+                    "PASS": "LOW",
+                    "WARN": "MEDIUM",
+                    "BLOCK": "CRITICAL"
+                }
+                severity = status_to_severity.get(status, "MEDIUM")
+
+                # Determine violation_type from violations
+                violation_type = "NONE"
+                if violations:
+                    # Use the first violation's severity as the type
+                    first_violation = violations[0]
+                    violation_severity = first_violation.get("severity", "WARNING")
+                    violation_type = violation_severity if violation_severity == "CRITICAL" else "WARNING"
+                elif status == "BLOCK":
+                    violation_type = "CRITICAL"
+                elif status == "WARN":
+                    violation_type = "WARNING"
+
+                # Write result to file for workflow to read (maintain backward compatibility)
                 result_data = {
-                    "confidence_score": confidence_score,
+                    "confidence_score": score,  # Map score to confidence_score
                     "severity": severity,
                     "reasoning": reasoning,
-                    "violation_type": violation_type
+                    "violation_type": violation_type,
+                    # Include new format fields for future use
+                    "score": score,
+                    "status": status,
+                    "violations": violations
                 }
                 with open('validation_result.txt', 'w') as f:
                     f.write(json.dumps(result_data, indent=2))
 
-                print(f"SUCCESS: Trust Score Calculated: {confidence_score}/100")
+                print(f"SUCCESS: Trust Score Calculated: {score}/100")
+                print(f"   Status: {status}")
                 print(f"   Severity: {severity}")
+                if violations:
+                    print(f"   Violations: {len(violations)} found")
                 print(f"   Reasoning: {reasoning}")
 
                 return result_data
@@ -436,18 +499,26 @@ class ActionGuard:
                 error_str = str(e)
                 print(f"WARNING:  Attempt {attempt + 1}/{max_retries} failed: {error_str[:200]}...")
 
-                # אם זה Rate Limit (429), נחכה וננסה שוב
+                # If it's a Rate Limit (429), wait and retry
                 if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
-                    wait_time = 60  # נחכה דקה שלמה, זה CI, יש לו סבלנות
+                    wait_time = 60  # Wait a full minute, this is CI, it has patience
                     print(f"⏳ Hit rate limit. Waiting {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
-                    # אם זו שגיאה אחרת, נחכה קצת ונסה שוב
+                    # If it's another error, wait a bit and try again
                     time.sleep(2)
 
         print("ERROR: LLM validation failed after all retries.")
         # Write failure result with low confidence score
-        failure_result = {"confidence_score": 10, "severity": "CRITICAL", "reasoning": "AI validation failed after retries", "violation_type": "VALIDATION_ERROR"}
+        failure_result = {
+            "confidence_score": 10,
+            "severity": "CRITICAL",
+            "reasoning": "AI validation failed after retries",
+            "violation_type": "VALIDATION_ERROR",
+            "score": 10,
+            "status": "BLOCK",
+            "violations": []
+        }
         with open('validation_result.txt', 'w') as f:
             f.write(json.dumps(failure_result, indent=2))
         return failure_result
