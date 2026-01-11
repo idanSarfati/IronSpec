@@ -21,4 +21,6 @@ jobs:
           linear_api_key: ${{ secrets.LINEAR_API_KEY }}
           notion_api_key: ${{ secrets.NOTION_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Note: This workflow tests the action wrapper, but action-guard.py requires PR context
+          # For full testing, create a test PR instead of pushing to main
 
