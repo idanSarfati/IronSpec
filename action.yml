@@ -5,7 +5,7 @@ branding:
   icon: 'shield'
   color: 'blue'
 inputs:
-  gemini_api_key:  # שים לב: המנהל כתב openai, אבל הקוד שלנו הוא gemini. השארתי gemini כדי לא לשבור.
+  gemini_api_key:
     description: 'API Key for the Reasoning Engine'
     required: true
   linear_api_key:
