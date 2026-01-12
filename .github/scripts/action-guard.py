@@ -124,15 +124,15 @@ If the code violates a rule, you must BLOCK it.
 
     def get_pr_details(self) -> Dict[str, Any]:
         """
-        Retrieves PR details from GITHUB_EVENT_PATH (standard for Actions)
-        with fallbacks to env vars or GITHUB_REF.
+        Extracts PR context. If triggered by PUSH (CI/Test), returns Mock Data.
         """
-        print("🔍 [Debug] Starting PR Context Extraction...")
-        
-        repo_full_name = os.getenv('GITHUB_REPOSITORY')
-        if not repo_full_name:
-            print("❌ ERROR: GITHUB_REPOSITORY env var is missing")
-            return {}
+        event_path = os.getenv('GITHUB_EVENT_PATH')
+        event_name = os.getenv('GITHUB_EVENT_NAME', 'unknown')
+        repo_full = os.getenv('GITHUB_REPOSITORY', 'owner/repo')
+        repo_name = repo_full.split('/')[1] if '/' in repo_full else 'unknown'
+        repo_full_name = repo_full
+
+        print(f"🔍 Event Type: {event_name}")
 
         pr_number = None
         pr_title = "Unknown Title"
@@ -140,27 +140,31 @@ If the code violates a rule, you must BLOCK it.
         pr_labels = []
         pr_html_url = None
 
-        # Strategy 1: Read from the Event JSON file (The Gold Standard 🥇)
-        event_path = os.getenv('GITHUB_EVENT_PATH')
+        # Scenario 1: Real PR event
         if event_path and os.path.exists(event_path):
-            print(f"   📂 Reading event file at: {event_path}")
             try:
                 with open(event_path, 'r') as f:
-                    event_data = json.load(f)
+                    data = json.load(f)
                 
-                # Check if this is a PR event
-                if 'pull_request' in event_data:
-                    pr_data = event_data['pull_request']
-                    pr_number = pr_data.get('number')
-                    pr_title = pr_data.get('title', pr_title)
-                    pr_body = pr_data.get('body', pr_body)
-                    pr_html_url = pr_data.get('html_url')
-                    pr_labels = [label.get('name', '') for label in pr_data.get('labels', [])]
-                    print(f"   ✅ Success: Extracted PR #{pr_number} from event.json")
-                else:
-                    print("   ⚠️ Event file found, but 'pull_request' key is missing (might be a push event?)")
+                if 'pull_request' in data:
+                    pr = data['pull_request']
+                    pr_number = pr.get('number')
+                    pr_title = pr.get('title', pr_title)
+                    pr_body = pr.get('body', pr_body)
+                    pr_html_url = pr.get('html_url')
+                    pr_labels = [label.get('name', '') for label in pr.get('labels', [])]
+                    print(f"   ✅ Detected Real PR #{pr_number}")
             except Exception as e:
                 print(f"   ⚠️ Error reading event JSON: {e}")
+
+        # Scenario 2: Push event (CI/Self-Test) - Create MOCK data
+        if not pr_number and event_name == 'push':
+            print("   ⚠️ Triggered by PUSH event. Creating MOCK PR context for testing...")
+            pr_number = 999  # Mock number
+            pr_title = '[TEST] CI Run on Push'
+            pr_body = 'This is a mock PR created for CI testing on push events'
+            pr_labels = []
+            pr_html_url = f"https://github.com/{repo_full}/pull/999"
 
         # Strategy 2: Fallback to direct Env Var (Legacy support)
         if not pr_number and os.getenv('PR_NUMBER'):
@@ -189,7 +193,7 @@ If the code violates a rule, you must BLOCK it.
             return {}
 
         # If we have a number but missing title/body/labels/html_url (Strategy 2/3), fetch via API
-        if pr_number and (pr_title == "Unknown Title" or not pr_html_url) and self.github_token:
+        if pr_number and (pr_title == "Unknown Title" or not pr_html_url) and self.github_token and pr_number != 999:
             print("   🔄 Fetching missing PR details via GitHub API...")
             try:
                 headers = {
@@ -214,7 +218,8 @@ If the code violates a rule, you must BLOCK it.
             'labels': pr_labels,
             'number': pr_number,
             'html_url': pr_html_url or '',
-            'repo': repo_full_name
+            'repo': repo_full_name,
+            'repo_name': repo_name
         }
 
     def check_for_override(self, pr_details: Dict[str, Any]) -> Optional[str]:
