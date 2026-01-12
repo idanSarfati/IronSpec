@@ -8,19 +8,18 @@ on:
 jobs:
   test-action:
     runs-on: ubuntu-latest
-    name: Test IronSpec Action
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Run IronSpec (Self-Test)
-        uses: ./ # Runs the Action from the current local code
+      - uses: actions/checkout@v3
         with:
-          # Here we verify that the Inputs are correctly defined and reach the code
+          fetch-depth: 0 # Important for Diff!
+
+      - name: Run IronSpec Self-Test
+        uses: ./ # This means "run the Action from the current directory"
+        with:
+          # 👇 Must pass secrets in, otherwise they won't reach Python
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           linear_api_key: ${{ secrets.LINEAR_API_KEY }}
-          notion_api_key: ${{ secrets.NOTION_API_KEY }}
+          notion_api_key: ${{ secrets.NOTION_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # Note: This workflow tests the action wrapper, but action-guard.py requires PR context
-          # For full testing, create a test PR instead of pushing to main
 
