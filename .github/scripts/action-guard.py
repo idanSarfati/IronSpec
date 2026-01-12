@@ -418,8 +418,8 @@ If the code violates a rule, you must BLOCK it.
 
     def auto_discover_spec_page(self, repo_name: str) -> Optional[str]:
         """
-        Searches Notion for the most relevant Spec/Architecture page
-        accessible to this integration.
+        Smart discovery with scoring algorithm to find the most relevant
+        Spec/Architecture page for the repository.
         """
         if not NOTION_CLIENT_AVAILABLE:
             print("⚠️ notion_client not available. Cannot use auto-discovery.")
@@ -435,59 +435,80 @@ If the code violates a rule, you must BLOCK it.
             # Initialize Notion client
             notion_client = Client(auth=self.notion_token)
             
-            # 1. Search for all pages the integration has access to
+            # Fetch up to 20 pages for better matching
             response = notion_client.search(
                 filter={"property": "object", "value": "page"},
-                page_size=10
+                page_size=20
             )
             results = response.get("results", [])
             
             if not results:
-                print("❌ No pages found! Did you 'Connect' the IronSpec integration to your Notion page?")
+                print("❌ No accessible pages found!")
                 return None
 
-            print(f"   🔎 Found {len(results)} accessible pages. Analyzing relevance...")
-
-            best_match = None
+            # Prepare keywords: "fintech-demo-test" -> "fintech"
+            repo_parts = repo_name.lower().replace('-', ' ').replace('_', ' ').split()
+            main_keyword = repo_parts[0] if repo_parts else repo_name.lower()
             
-            # 2. Ranking Logic
+            print(f"   🔎 Analyzing {len(results)} pages against keyword: '{main_keyword}'")
+
+            scored_pages = []
+
+            # 2. Scoring Logic
             for page in results:
                 page_id = page['id']
                 title = "Untitled"
                 
-                # Extract title (Notion structure is messy)
+                # Extract title safely
                 try:
                     props = page.get('properties', {})
-                    # Try standard 'title' property
                     for key, val in props.items():
                         if val.get('type') == 'title' and val.get('title'):
                             title = val['title'][0]['plain_text']
                             break
                 except:
-                    pass
-                
-                print(f"      - Found page: '{title}' ({page_id})")
+                    continue
 
-                # Priority 1: Exact match or contains Repo Name
-                if repo_name.lower() in title.lower():
-                    print(f"      ✅ High Confidence Match: '{title}' contains repo name.")
-                    return page_id
+                # --- THE SCORING ALGORITHM ---
+                score = 0
+                title_lower = title.lower()
+
+                # Criterion A: Repo Name Exact Match (100 pts)
+                if repo_name.lower() in title_lower:
+                    score += 100
                 
-                # Priority 2: Keywords like "Spec", "Architecture", "Rules"
-                if any(kw in title.lower() for kw in ["spec", "architecture", "governance", "rules"]):
-                    best_match = page_id
+                # Criterion B: Main Keyword Match (e.g., "fintech") (50 pts)
+                elif main_keyword in title_lower:
+                    score += 50
+                
+                # Criterion C: Context Keywords (20 pts)
+                if any(x in title_lower for x in ["spec", "standard", "core", "architecture"]):
+                    score += 20
+                
+                # Criterion D: Weak Keywords (5 pts)
+                if "rule" in title_lower:
+                    score += 5
+
+                if score > 0:
+                    print(f"      👉 Candidate: '{title}' | Score: {score}")
+                    scored_pages.append((score, page_id, title))
+                else:
+                    print(f"      🗑️ Ignored: '{title}' (Score: 0)")
+
+            # Sort by Score (Highest first)
+            scored_pages.sort(key=lambda x: x[0], reverse=True)
+
+            if scored_pages:
+                winner = scored_pages[0]
+                print(f"   🏆 WINNER: '{winner[2]}' (Score: {winner[0]})")
+                return winner[1]
             
-            # Return best match or just the first page found (Fallback)
-            if best_match:
-                print(f"   ✅ Selected best match by keyword: {best_match}")
-                return best_match
-            
-            if results:
-                print(f"   ⚠️ No specific keywords matched. Defaulting to first accessible page.")
-                return results[0]['id']
+            # Fallback if nothing matches well
+            print("   ⚠️ No high-score matches. Defaulting to first result.")
+            return results[0]['id']
 
         except Exception as e:
-            print(f"   ⚠️ Discovery failed: {e}")
+            print(f"   ⚠️ Discovery Error: {e}")
             return None
 
     def get_git_diff(self):
