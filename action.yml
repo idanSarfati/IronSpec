@@ -1,12 +1,12 @@
 name: 'IronSpec: Governance Guard'
-description: 'The "Iron Dome" for AI-Native Dev Shops. Enforces Notion Specs via Linear & GitHub.'
-author: 'IronSpec'
-branding:
-  icon: 'shield'
-  color: 'blue'
+description: 'The "Iron Dome" for AI-Native Dev Shops.'
 inputs:
   gemini_api_key:
-    description: 'API Key for the Reasoning Engine'
+    description: 'Gemini API Key'
+    required: false
+  # 👇 1. Must define the input here
+  openai_api_key:
+    description: 'OpenAI API Key'
     required: false
   linear_api_key:
     description: 'API Key for Audit Logging'
@@ -15,7 +15,7 @@ inputs:
     description: 'API Key for fetching Specs'
     required: true
   github_token:
-    description: 'GITHUB_TOKEN to post comments'
+    description: 'GITHUB_TOKEN'
     required: true
     default: ${{ github.token }}
 runs:
@@ -25,24 +25,20 @@ runs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    
-    - name: Install Dependencies (Secure)
+    - name: Install Dependencies
       shell: bash
       run: pip install -r ${{ github.action_path }}/requirements.txt
-
     - name: Run Governance Guard
       shell: bash
       env:
-        # API Keys
         GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        # 👇 2. Must pass the input to environment variable here
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         LINEAR_API_KEY: ${{ inputs.linear_api_key }}
         NOTION_TOKEN: ${{ inputs.notion_api_key }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
-        
-        # 👇 The big fix: Pass Context data to Python
         GITHUB_EVENT_PATH: ${{ github.event_path }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
         GITHUB_EVENT_NAME: ${{ github.event_name }}
-      
       run: python ${{ github.action_path }}/.github/scripts/action-guard.py
