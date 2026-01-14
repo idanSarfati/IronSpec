@@ -544,12 +544,20 @@ If the code violates a rule, you must BLOCK it.
                 print(f"DEBUG: GITHUB_HEAD_REF={os.getenv('GITHUB_HEAD_REF')}")
                 print(f"DEBUG: GITHUB_SHA={os.getenv('GITHUB_SHA')}")
 
-                # Fetch the target branch with more verbosity
+                # Fetch the target branch with FULL history (not shallow) to find merge base
+                # This is critical - shallow fetch breaks merge-base detection
                 fetch_result = subprocess.run(
-                    ["git", "fetch", "origin", target_branch, "--depth=1"], 
+                    ["git", "fetch", "origin", target_branch, "--unshallow"], 
                     capture_output=True, 
                     text=True
                 )
+                # If --unshallow fails (already unshallow), try regular fetch
+                if fetch_result.returncode != 0:
+                    fetch_result = subprocess.run(
+                        ["git", "fetch", "origin", target_branch], 
+                        capture_output=True, 
+                        text=True
+                    )
                 print(f"DEBUG: Fetch result: {fetch_result.returncode}, stderr: {fetch_result.stderr}")
                 
                 # Try to get the merge base for accurate comparison
@@ -564,9 +572,10 @@ If the code violates a rule, you must BLOCK it.
                     print(f"DEBUG: Merge base: {merge_base}")
                     cmd = ["git", "diff", merge_base, "HEAD"]
                 else:
-                    print(f"DEBUG: Could not find merge base, using direct diff. Error: {merge_base_result.stderr}")
-                    # Fallback: Use three-dot diff which shows changes in PR branch
-                    cmd = ["git", "diff", f"origin/{target_branch}...HEAD"]
+                    print(f"DEBUG: Could not find merge base. Error: {merge_base_result.stderr}")
+                    # Fallback: Direct two-dot diff (not three-dot which requires merge base)
+                    print(f"DEBUG: Falling back to direct diff: origin/{target_branch}..HEAD")
+                    cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
             else:
                 # Local testing: fetch and compare against origin/main
                 print("Running locally - fetching origin/main...")
