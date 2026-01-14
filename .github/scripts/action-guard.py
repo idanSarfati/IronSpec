@@ -513,68 +513,94 @@ If the code violates a rule, you must BLOCK it.
             if is_github_actions:
                 # GitHub Actions PR events: compare against target branch
                 target_branch = os.getenv('GITHUB_BASE_REF', 'main')  # e.g., 'main' or 'master'
+                head_ref = os.getenv('GITHUB_HEAD_REF', '')  # PR source branch
+                github_sha = os.getenv('GITHUB_SHA', '')  # Current commit SHA
+                
                 print(f"Running in GitHub Actions - comparing against target branch: {target_branch}")
-                
-                # Debug: Print relevant env vars
-                # Environment variables can be inspected locally if needed:
-                # GITHUB_BASE_REF, GITHUB_HEAD_REF, GITHUB_SHA
+                print(f"   PR head ref: {head_ref}, SHA: {github_sha[:8] if github_sha else 'N/A'}")
 
-                # Fetch the target branch with FULL history (not shallow) to find merge base
-                # This is critical - shallow fetch breaks merge-base detection
-                fetch_result = subprocess.run(
-                    ["git", "fetch", "origin", target_branch, "--unshallow"], 
-                    capture_output=True, 
-                    text=True
-                )
-                # If --unshallow fails (already unshallow), try regular fetch
-                if fetch_result.returncode != 0:
-                    fetch_result = subprocess.run(
-                        ["git", "fetch", "origin", target_branch], 
-                        capture_output=True, 
-                        text=True
+                # Fetch both branches with full history
+                subprocess.run(["git", "fetch", "origin", target_branch, "--unshallow"], 
+                    capture_output=True, text=True)
+                subprocess.run(["git", "fetch", "origin", target_branch], 
+                    capture_output=True, text=True)
+                
+                # Also fetch the PR branch if available
+                if head_ref:
+                    subprocess.run(["git", "fetch", "origin", head_ref], 
+                        capture_output=True, text=True)
+                
+                # Try multiple diff strategies in order of reliability
+                diff_content = ""
+                
+                # Strategy 1: Use GITHUB_SHA directly (most reliable for PR events)
+                if github_sha:
+                    cmd = ["git", "diff", f"origin/{target_branch}...{github_sha}"]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0 and result.stdout.strip():
+                        print(f"   Strategy 1 (three-dot with SHA): Found diff")
+                        diff_content = result.stdout.strip()
+                
+                # Strategy 2: Try merge-base approach
+                if not diff_content:
+                    merge_base_result = subprocess.run(
+                        ["git", "merge-base", f"origin/{target_branch}", "HEAD"],
+                        capture_output=True, text=True
                     )
+                    if merge_base_result.returncode == 0:
+                        merge_base = merge_base_result.stdout.strip()
+                        cmd = ["git", "diff", merge_base, "HEAD"]
+                        result = subprocess.run(cmd, capture_output=True, text=True)
+                        if result.returncode == 0 and result.stdout.strip():
+                            print(f"   Strategy 2 (merge-base): Found diff")
+                            diff_content = result.stdout.strip()
                 
-                # Try to get the merge base for accurate comparison
-                merge_base_result = subprocess.run(
-                    ["git", "merge-base", f"origin/{target_branch}", "HEAD"],
-                    capture_output=True,
-                    text=True
-                )
-                
-                if merge_base_result.returncode == 0:
-                    merge_base = merge_base_result.stdout.strip()
-                    cmd = ["git", "diff", merge_base, "HEAD"]
-                else:
-                    # Fallback: Direct two-dot diff (not three-dot which requires merge base)
+                # Strategy 3: Direct two-dot diff
+                if not diff_content:
                     cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0 and result.stdout.strip():
+                        print(f"   Strategy 3 (two-dot): Found diff")
+                        diff_content = result.stdout.strip()
+                
+                # Strategy 4: Use git log to get changed files and read them
+                if not diff_content:
+                    print("   WARNING: All diff strategies failed, trying file-based approach")
+                    files_result = subprocess.run(
+                        ["git", "diff", "--name-only", f"origin/{target_branch}", "HEAD"],
+                        capture_output=True, text=True
+                    )
+                    if files_result.returncode == 0 and files_result.stdout.strip():
+                        changed_files = files_result.stdout.strip().split('\n')
+                        print(f"   Found {len(changed_files)} changed files: {changed_files[:5]}")
+                        # Read the actual file contents as a fallback
+                        for f in changed_files[:10]:  # Limit to 10 files
+                            if os.path.exists(f):
+                                try:
+                                    with open(f, 'r', encoding='utf-8', errors='ignore') as file:
+                                        diff_content += f"\n--- File: {f} ---\n"
+                                        diff_content += file.read()
+                                except:
+                                    pass
+                
+                if diff_content:
+                    print(f"SUCCESS: Found diff ({len(diff_content)} chars)")
+                    return diff_content
+                else:
+                    print("ERROR: Could not get diff from any strategy")
+                    return ""
             else:
                 # Local testing: fetch and compare against origin/main
                 print("Running locally - fetching origin/main...")
                 subprocess.run(["git", "fetch", "origin", "main"], check=False, capture_output=True)
                 cmd = ["git", "diff", "origin/main", "HEAD"]
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True
-            )
-            if result.returncode == 0:
-                diff_content = result.stdout.strip()
-                if diff_content:
-                    print(f"SUCCESS: Found diff ({len(diff_content)} chars)")
-                    # Print first few lines of diff for debugging
-                    return diff_content
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0 and result.stdout.strip():
+                    print(f"SUCCESS: Found diff ({len(result.stdout.strip())} chars)")
+                    return result.stdout.strip()
                 else:
-                    print("INFO: No diff found (no changes)")
-                    # Try alternative: list changed files
-                    files_result = subprocess.run(
-                        ["git", "diff", "--name-only", f"origin/{target_branch}", "HEAD"],
-                        capture_output=True,
-                        text=True
-                    )
+                    print("INFO: No diff found locally")
                     return ""
-            else:
-                print(f"WARNING: Git diff command failed: {result.stderr}")
-            return ""
 
         except Exception as e:
             print(f"ERROR: Error getting git diff: {e}")
