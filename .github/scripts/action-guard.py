@@ -905,26 +905,63 @@ If the code violates a rule, you must BLOCK it.
             forbidden_list = [lib.strip().lower() for lib in forbidden_libs.replace(',', ';').split(';') if lib.strip()]
             print(f"DEBUG: Checking for forbidden libraries: {forbidden_list}")
 
+            # Normalize forbidden library names for better detection
+            # Map common aliases to their detection patterns
+            lib_detection_map = {
+                'native fetch': ['fetch\\s*\\(', '\\.fetch\\s*\\('],  # fetch( or .fetch(
+                'fetch': ['fetch\\s*\\(', '\\.fetch\\s*\\('],  # Same for just "fetch"
+                'jquery': ['\\$\\s*\\(', 'jquery', '\\$\\.ajax', '\\$\\.get', '\\$\\.post'],  # $( or jQuery patterns
+                'axios': ['axios\\.', 'axios\\s*\\(', 'from\\s+[\'"]axios[\'"]', 'require\\s*\\([\'"]axios[\'"]\\)'],
+            }
+
             # 1. Check full context (includes both git diff and file contents) for forbidden dependencies
             for lib in forbidden_list:
-                if lib in full_context.lower():
-                    # Check for dependency additions in package files
-                    dependency_patterns = [
-                        f'^{lib}$',  # Just the library name (like in requirements.txt)
-                        f'^{lib}@',  # library@version
-                        f'^{lib}:',  # library: version
-                        f'"{lib}"',  # "library"
-                        f"'{lib}'",  # 'library'
-                        f'\\+{lib}$',  # +library (git diff format)
-                        f'\\+{lib}@',  # +library@version
-                        f'\\+{lib}:',  # +library: version
+                lib_lower = lib.lower()
+                found_violation = False
+                
+                # Get detection patterns for this library (use custom patterns or default)
+                if lib_lower in lib_detection_map:
+                    detection_patterns = lib_detection_map[lib_lower]
+                else:
+                    # Default patterns for unknown libraries
+                    detection_patterns = [
+                        f'\\b{re.escape(lib_lower)}\\b',  # Word boundary match
+                        f'from\\s+[\'\"]{re.escape(lib_lower)}[\'\"]',  # ES6 import
+                        f'require\\s*\\([\'\"]{re.escape(lib_lower)}[\'\"\\)]',  # CommonJS require
+                        f'import\\s+{re.escape(lib_lower)}',  # import statement
                     ]
+                
+                # Check for actual usage patterns in the diff (look for added lines with +)
+                for pattern in detection_patterns:
+                    # Look for the pattern in added lines (git diff format: lines starting with +)
+                    added_line_pattern = f'^\\+.*{pattern}'
+                    if re.search(added_line_pattern, full_context, re.IGNORECASE | re.MULTILINE):
+                        violations.append(f"BLOCKED: Forbidden library/API usage detected: {lib}")
+                        print(f"VIOLATION: Found forbidden '{lib}' usage in added code (pattern: {pattern})")
+                        found_violation = True
+                        break
+                
+                if found_violation:
+                    continue
+                    
+                # Also check dependency file patterns (original logic)
+                dependency_patterns = [
+                    f'^{re.escape(lib_lower)}$',  # Just the library name (like in requirements.txt)
+                    f'^{re.escape(lib_lower)}@',  # library@version
+                    f'^{re.escape(lib_lower)}:',  # library: version
+                    f'"{re.escape(lib_lower)}"',  # "library"
+                    f"'{re.escape(lib_lower)}'",  # 'library'
+                    f'\\+{re.escape(lib_lower)}$',  # +library (git diff format)
+                    f'\\+{re.escape(lib_lower)}@',  # +library@version
+                    f'\\+{re.escape(lib_lower)}:',  # +library: version
+                    f'\\+\\s*"{re.escape(lib_lower)}"',  # +"library" in package.json
+                ]
 
-                    for pattern in dependency_patterns:
-                        if re.search(pattern, full_context, re.IGNORECASE | re.MULTILINE):
-                            violations.append(f"BLOCKED: Forbidden library found: {lib}")
-                            print(f"VIOLATION: Found forbidden library '{lib}' in PR changes or dependencies")
-                            break
+                for pattern in dependency_patterns:
+                    if re.search(pattern, full_context, re.IGNORECASE | re.MULTILINE):
+                        violations.append(f"BLOCKED: Forbidden library found in dependencies: {lib}")
+                        print(f"VIOLATION: Found forbidden library '{lib}' in PR changes or dependencies")
+                        break
 
             # 2. Check actual file contents for forbidden libraries
             # Scan requirements.txt for forbidden packages
