@@ -519,29 +519,36 @@ If the code violates a rule, you must BLOCK it.
                 print(f"Running in GitHub Actions - comparing against target branch: {target_branch}")
                 print(f"   PR head ref: {head_ref}, SHA: {github_sha[:8] if github_sha else 'N/A'}")
 
-                # Fetch both branches with full history
-                subprocess.run(["git", "fetch", "origin", target_branch, "--unshallow"], 
-                    capture_output=True, text=True)
-                subprocess.run(["git", "fetch", "origin", target_branch], 
+                # CRITICAL: Fetch with --unshallow and deepen to get full history
+                # This is required for shallow clones (default in GitHub Actions)
+                subprocess.run(["git", "fetch", "--unshallow"], capture_output=True, text=True)
+                subprocess.run(["git", "fetch", "origin", target_branch], capture_output=True, text=True)
+                subprocess.run(["git", "fetch", "origin", f"+refs/heads/{target_branch}:refs/remotes/origin/{target_branch}"], 
                     capture_output=True, text=True)
                 
                 # Also fetch the PR branch if available
                 if head_ref:
-                    subprocess.run(["git", "fetch", "origin", head_ref], 
-                        capture_output=True, text=True)
+                    subprocess.run(["git", "fetch", "origin", head_ref], capture_output=True, text=True)
                 
                 # Try multiple diff strategies in order of reliability
                 diff_content = ""
                 
-                # Strategy 1: Use GITHUB_SHA directly (most reliable for PR events)
-                if github_sha:
+                # Strategy 1: Direct diff against origin/target_branch (most common)
+                cmd = ["git", "diff", f"origin/{target_branch}..HEAD"]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                if result.returncode == 0 and result.stdout.strip():
+                    print(f"   Strategy 1 (two-dot origin): Found diff")
+                    diff_content = result.stdout.strip()
+                
+                # Strategy 2: Use GITHUB_SHA with three-dot
+                if not diff_content and github_sha:
                     cmd = ["git", "diff", f"origin/{target_branch}...{github_sha}"]
                     result = subprocess.run(cmd, capture_output=True, text=True)
                     if result.returncode == 0 and result.stdout.strip():
-                        print(f"   Strategy 1 (three-dot with SHA): Found diff")
+                        print(f"   Strategy 2 (three-dot with SHA): Found diff")
                         diff_content = result.stdout.strip()
                 
-                # Strategy 2: Try merge-base approach
+                # Strategy 3: Try merge-base approach
                 if not diff_content:
                     merge_base_result = subprocess.run(
                         ["git", "merge-base", f"origin/{target_branch}", "HEAD"],
@@ -552,34 +559,70 @@ If the code violates a rule, you must BLOCK it.
                         cmd = ["git", "diff", merge_base, "HEAD"]
                         result = subprocess.run(cmd, capture_output=True, text=True)
                         if result.returncode == 0 and result.stdout.strip():
-                            print(f"   Strategy 2 (merge-base): Found diff")
+                            print(f"   Strategy 3 (merge-base): Found diff")
                             diff_content = result.stdout.strip()
                 
-                # Strategy 3: Direct two-dot diff
-                if not diff_content:
-                    cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
-                    result = subprocess.run(cmd, capture_output=True, text=True)
-                    if result.returncode == 0 and result.stdout.strip():
-                        print(f"   Strategy 3 (two-dot): Found diff")
-                        diff_content = result.stdout.strip()
+                # Strategy 4: Use GitHub API to get PR diff (most reliable fallback)
+                if not diff_content and self.github_token:
+                    print("   Trying GitHub API for diff...")
+                    try:
+                        repo = os.getenv('GITHUB_REPOSITORY', '')
+                        # Get PR number from event
+                        event_path = os.getenv('GITHUB_EVENT_PATH', '')
+                        pr_number = None
+                        if event_path and os.path.exists(event_path):
+                            with open(event_path, 'r') as f:
+                                event_data = json.load(f)
+                                pr_number = event_data.get('pull_request', {}).get('number') or event_data.get('number')
+                        
+                        if pr_number and repo:
+                            url = f"https://api.github.com/repos/{repo}/pulls/{pr_number}/files"
+                            headers = {
+                                "Authorization": f"token {self.github_token}",
+                                "Accept": "application/vnd.github.v3+json"
+                            }
+                            response = requests.get(url, headers=headers)
+                            if response.status_code == 200:
+                                files = response.json()
+                                print(f"   Strategy 4 (GitHub API): Found {len(files)} changed files")
+                                for file_info in files[:20]:  # Limit to 20 files
+                                    filename = file_info.get('filename', '')
+                                    patch = file_info.get('patch', '')
+                                    if patch:
+                                        diff_content += f"\n--- a/{filename}\n+++ b/{filename}\n{patch}\n"
+                                    elif os.path.exists(filename):
+                                        # No patch available, read the file
+                                        try:
+                                            with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
+                                                content = f.read()
+                                                # Mark all lines as added
+                                                diff_content += f"\n--- a/{filename}\n+++ b/{filename}\n"
+                                                for line in content.split('\n'):
+                                                    diff_content += f"+{line}\n"
+                                        except:
+                                            pass
+                    except Exception as e:
+                        print(f"   GitHub API diff failed: {e}")
                 
-                # Strategy 4: Use git log to get changed files and read them
+                # Strategy 5: Last resort - read all tracked files and mark as added
                 if not diff_content:
-                    print("   WARNING: All diff strategies failed, trying file-based approach")
-                    files_result = subprocess.run(
-                        ["git", "diff", "--name-only", f"origin/{target_branch}", "HEAD"],
-                        capture_output=True, text=True
-                    )
-                    if files_result.returncode == 0 and files_result.stdout.strip():
-                        changed_files = files_result.stdout.strip().split('\n')
-                        print(f"   Found {len(changed_files)} changed files: {changed_files[:5]}")
-                        # Read the actual file contents as a fallback
-                        for f in changed_files[:10]:  # Limit to 10 files
+                    print("   WARNING: All diff strategies failed, scanning workspace files")
+                    # Get list of files in the repo
+                    ls_result = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+                    if ls_result.returncode == 0:
+                        all_files = ls_result.stdout.strip().split('\n')
+                        # Filter to likely code files
+                        code_extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go', '.rs', '.rb', '.php']
+                        code_files = [f for f in all_files if any(f.endswith(ext) for ext in code_extensions)][:15]
+                        print(f"   Scanning {len(code_files)} code files as fallback")
+                        for f in code_files:
                             if os.path.exists(f):
                                 try:
                                     with open(f, 'r', encoding='utf-8', errors='ignore') as file:
-                                        diff_content += f"\n--- File: {f} ---\n"
-                                        diff_content += file.read()
+                                        content = file.read()
+                                        diff_content += f"\n--- a/{f}\n+++ b/{f}\n"
+                                        for line in content.split('\n'):
+                                            diff_content += f"+{line}\n"
                                 except:
                                     pass
                 
