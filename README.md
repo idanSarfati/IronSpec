@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: 🛡️ Run IronSpec Governance
-        uses: idanSarfati/IronSpec@v1.0.0
+        uses: idanSarfati/IronSpec@v2.0.0
         with:
           linear_api_key: ${{ secrets.LINEAR_API_KEY }}
           notion_api_key: ${{ secrets.NOTION_API_KEY }}
