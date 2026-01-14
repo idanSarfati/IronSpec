@@ -272,12 +272,12 @@ class LinearClient:
         Fetches full details for a specific task using its human identifier.
 
         This uses an indirection layer via the `issues` connection with a
-        filter on `identifier` (e.g., "IDA-6") instead of relying on the
+        filter on `identifier` (e.g., "PROJ-123") instead of relying on the
         `issue(identifier: ...)` field, which is not supported on all
         Linear API schemas.
 
         Args:
-            task_identifier: Linear issue identifier (e.g., "IDA-8", "LIN-101").
+            task_identifier: Linear issue identifier (e.g., "PROJ-123").
 
         Returns:
             Formatted string with detailed task information and semantic guidance.
@@ -287,7 +287,7 @@ class LinearClient:
         # Normalize identifier for robustness (Linear identifiers are typically uppercase)
         normalized_identifier = task_identifier.upper().strip()
 
-        # Linear identifiers are typically of the form TEAMKEY-123 (e.g., "IDA-6").
+        # Linear identifiers are typically of the form TEAMKEY-123 (e.g., "PROJ-123").
         # The Linear GraphQL schema for IssueFilter does NOT support `identifier`,
         # but it DOES support filtering by `number` and `team.key`. We therefore:
         #   1) Parse the human identifier into (team_key, number)
@@ -296,7 +296,7 @@ class LinearClient:
             logger.warning(f"Invalid Linear task format: {task_identifier}")
             return (
                 f"⚠️ Task '{task_identifier}' is not in a valid Linear format. "
-                f"Expected something like 'IDA-6' (TEAMKEY-NUMBER)."
+                f"Expected something like 'PROJ-123' (TEAMKEY-NUMBER)."
             )
 
         team_key, number_str = normalized_identifier.split("-", 1)
@@ -306,7 +306,7 @@ class LinearClient:
             logger.warning(f"Invalid numeric part in task identifier: {task_identifier}")
             return (
                 f"⚠️ Task '{task_identifier}' has an invalid numeric part. "
-                f"Expected something like 'IDA-6' where '6' is a number."
+                f"Expected something like 'PROJ-123' where '123' is a number."
             )
         
         logger.debug(f"Parsed task identifier: team_key={team_key}, number={issue_number}")
@@ -356,7 +356,7 @@ class LinearClient:
             logger.warning(f"Task not found in Linear: {task_identifier}")
             return (
                 f"⚠️ Task '{task_identifier}' not found in Linear. "
-                f"Please verify the ID (e.g., 'IDA-6') and try again."
+                f"Please verify the ID (e.g., 'PROJ-123') and try again."
             )
 
         issue = issues[0]
@@ -390,7 +390,7 @@ class LinearClient:
         Updates the status of a specific Linear task.
 
         Args:
-            task_identifier: Linear issue identifier (e.g., "IDA-8", "LIN-101")
+            task_identifier: Linear issue identifier (e.g., "PROJ-123")
             new_status: New status name (e.g., "Done", "In Progress", "Backlog")
 
         Returns:

@@ -207,7 +207,7 @@ class GovernanceExtractor:
 
             for line in lines:
                 if '📌 [' in line and ']' in line:
-                    # Extract task ID from format like: "📌 [IDA-6] Task Title"
+                    # Extract task ID from format like: "📌 [PROJ-123] Task Title"
                     try:
                         id_start = line.find('[') + 1
                         id_end = line.find(']', id_start)

@@ -93,10 +93,10 @@ if linear_client:
     @mcp.tool()
     def update_linear_task_status(task_id: str, new_status: str) -> str:
         """
-        Update the status of a specific Linear task (e.g., 'LIN-101' or 'IDA-8').
+        Update the status of a specific Linear task (e.g., 'PROJ-123').
 
         Args:
-            task_id: Linear issue identifier (e.g., 'IDA-8', 'LIN-101')
+            task_id: Linear issue identifier (e.g., 'PROJ-123')
             new_status: New status name (e.g., 'Done', 'In Progress', 'Backlog')
 
         Returns:
@@ -121,7 +121,7 @@ if linear_client:
     @mcp.tool()
     def get_linear_task_details(task_id: str) -> str:
         """
-        Fetch full description and metadata for a specific Linear task (e.g., 'LIN-101' or 'IDA-8').
+        Fetch full description and metadata for a specific Linear task (e.g., 'PROJ-123').
         
         Returns detailed information including description, labels, status, and priority.
         
