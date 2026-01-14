@@ -913,6 +913,16 @@ If the code violates a rule, you must BLOCK it.
                 'jquery': ['\\$\\s*\\(', 'jquery', '\\$\\.ajax', '\\$\\.get', '\\$\\.post'],  # $( or jQuery patterns
                 'axios': ['axios\\.', 'axios\\s*\\(', 'from\\s+[\'"]axios[\'"]', 'require\\s*\\([\'"]axios[\'"]\\)'],
             }
+            
+            # DEBUG: Print the full context to see what we're checking against
+            print(f"DEBUG: Full context length: {len(full_context)} chars")
+            print(f"DEBUG: Full context preview (first 500 chars):\n{full_context[:500]}")
+            
+            # Also print lines that start with + (added lines in diff)
+            added_lines = [line for line in full_context.split('\n') if line.startswith('+')]
+            print(f"DEBUG: Found {len(added_lines)} added lines in diff:")
+            for line in added_lines[:10]:  # Show first 10 added lines
+                print(f"  {line}")
 
             # 1. Check full context (includes both git diff and file contents) for forbidden dependencies
             for lib in forbidden_list:
@@ -931,13 +941,17 @@ If the code violates a rule, you must BLOCK it.
                         f'import\\s+{re.escape(lib_lower)}',  # import statement
                     ]
                 
+                print(f"DEBUG: Checking lib '{lib_lower}' with patterns: {detection_patterns}")
+                
                 # Check for actual usage patterns in the diff (look for added lines with +)
                 for pattern in detection_patterns:
                     # Look for the pattern in added lines (git diff format: lines starting with +)
                     added_line_pattern = f'^\\+.*{pattern}'
-                    if re.search(added_line_pattern, full_context, re.IGNORECASE | re.MULTILINE):
+                    match = re.search(added_line_pattern, full_context, re.IGNORECASE | re.MULTILINE)
+                    if match:
                         violations.append(f"BLOCKED: Forbidden library/API usage detected: {lib}")
                         print(f"VIOLATION: Found forbidden '{lib}' usage in added code (pattern: {pattern})")
+                        print(f"VIOLATION: Matched text: {match.group()}")
                         found_violation = True
                         break
                 
