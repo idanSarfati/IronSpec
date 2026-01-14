@@ -526,34 +526,82 @@ If the code violates a rule, you must BLOCK it.
         try:
             # Check if we're in GitHub Actions (has GITHUB_ACTIONS env var)
             is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
+            
+            # Debug: Print current git state
+            head_result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
+            print(f"DEBUG: Current HEAD: {head_result.stdout.strip()}")
+            
+            branch_result = subprocess.run(["git", "branch", "-a"], capture_output=True, text=True)
+            print(f"DEBUG: Available branches:\n{branch_result.stdout}")
 
             if is_github_actions:
                 # GitHub Actions PR events: compare against target branch
                 target_branch = os.getenv('GITHUB_BASE_REF', 'main')  # e.g., 'main' or 'master'
                 print(f"Running in GitHub Actions - comparing against target branch: {target_branch}")
+                
+                # Debug: Print relevant env vars
+                print(f"DEBUG: GITHUB_BASE_REF={os.getenv('GITHUB_BASE_REF')}")
+                print(f"DEBUG: GITHUB_HEAD_REF={os.getenv('GITHUB_HEAD_REF')}")
+                print(f"DEBUG: GITHUB_SHA={os.getenv('GITHUB_SHA')}")
 
-                # Fetch the target branch and compare
-                subprocess.run(["git", "fetch", "origin", target_branch], check=False, capture_output=True)
-                cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
+                # Fetch the target branch with more verbosity
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "origin", target_branch, "--depth=1"], 
+                    capture_output=True, 
+                    text=True
+                )
+                print(f"DEBUG: Fetch result: {fetch_result.returncode}, stderr: {fetch_result.stderr}")
+                
+                # Try to get the merge base for accurate comparison
+                merge_base_result = subprocess.run(
+                    ["git", "merge-base", f"origin/{target_branch}", "HEAD"],
+                    capture_output=True,
+                    text=True
+                )
+                
+                if merge_base_result.returncode == 0:
+                    merge_base = merge_base_result.stdout.strip()
+                    print(f"DEBUG: Merge base: {merge_base}")
+                    cmd = ["git", "diff", merge_base, "HEAD"]
+                else:
+                    print(f"DEBUG: Could not find merge base, using direct diff. Error: {merge_base_result.stderr}")
+                    # Fallback: Use three-dot diff which shows changes in PR branch
+                    cmd = ["git", "diff", f"origin/{target_branch}...HEAD"]
             else:
                 # Local testing: fetch and compare against origin/main
                 print("Running locally - fetching origin/main...")
                 subprocess.run(["git", "fetch", "origin", "main"], check=False, capture_output=True)
                 cmd = ["git", "diff", "origin/main", "HEAD"]
 
+            print(f"DEBUG: Running diff command: {' '.join(cmd)}")
+            
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True
             )
 
+            print(f"DEBUG: Diff command return code: {result.returncode}")
+            if result.stderr:
+                print(f"DEBUG: Diff stderr: {result.stderr}")
+
             if result.returncode == 0:
                 diff_content = result.stdout.strip()
                 if diff_content:
                     print(f"SUCCESS: Found diff ({len(diff_content)} chars)")
+                    # Print first few lines of diff for debugging
+                    diff_lines = diff_content.split('\n')[:20]
+                    print(f"DEBUG: First 20 lines of diff:\n" + '\n'.join(diff_lines))
                     return diff_content
                 else:
                     print("INFO: No diff found (no changes)")
+                    # Try alternative: list changed files
+                    files_result = subprocess.run(
+                        ["git", "diff", "--name-only", f"origin/{target_branch}", "HEAD"],
+                        capture_output=True,
+                        text=True
+                    )
+                    print(f"DEBUG: Changed files: {files_result.stdout}")
                     return ""
             else:
                 print(f"WARNING: Git diff command failed: {result.stderr}")
