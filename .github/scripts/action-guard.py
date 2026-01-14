@@ -319,18 +319,9 @@ If the code violates a rule, you must BLOCK it.
                 'x-apollo-operation-name': 'GetIssue'
             }
 
-            # Debug: Print request details
-            print(f"INFO: Making Linear API request for issue: {issue_id}")
-            print(f"DEBUG: Headers: Content-Type={headers.get('Content-Type')}, Auth starts with: {headers.get('Authorization', '')[:10]}...")
-
             response = requests.post(url, json={'query': query, 'variables': {'issueId': issue_id}}, headers=headers)
 
-            # Debug: Print full response details
-            print(f"DEBUG: Response Status: {response.status_code}")
-            print(f"DEBUG: Response Headers: {dict(response.headers)}")
-
             if response.status_code != 200:
-                print(f"ERROR: Full Response Body: {response.text}")
                 print("ERROR: Linear API request failed - check authentication and request format")
                 return None
 
@@ -341,7 +332,6 @@ If the code violates a rule, you must BLOCK it.
                 return issue
             else:
                 print(f"ERROR: Linear issue {issue_id} not found in response")
-                print(f"Response data: {data}")
                 return None
 
         except Exception as e:
@@ -358,8 +348,6 @@ If the code violates a rule, you must BLOCK it.
         if not description:
             return None
 
-        print(f"INFO: Searching for Notion link in description: '{description}'")
-
         # Search for sequence of 32 hex characters (a-f, 0-9)
         # that comes after notion.so/ and optionally after text and dash
         # Example: notion.so/some-title-1234567890abcdef1234567890abcdef
@@ -371,20 +359,10 @@ If the code violates a rule, you must BLOCK it.
         if match:
             # group(2) is the ID itself (32 characters)
             page_id = match.group(2)
-            print(f"SUCCESS: Found Notion page ID: {page_id}")
             return page_id
 
         print("ERROR: No Notion page ID found in description")
         print("💡 Expected format: https://www.notion.so/page-name-PAGE_ID")
-
-        # Debug: Let's see what the pattern finds
-        print("🔧 Debug: Checking all notion.so occurrences...")
-        all_matches = re.findall(r'notion\.so/[^?\s]+', description)
-        if all_matches:
-            print(f"🔧 Found URLs: {all_matches}")
-        else:
-            print("🔧 No notion.so URLs found at all")
-
         return None
 
     def fetch_notion_page(self, page_id: str) -> Optional[str]:
@@ -529,10 +507,8 @@ If the code violates a rule, you must BLOCK it.
             
             # Debug: Print current git state
             head_result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True)
-            print(f"DEBUG: Current HEAD: {head_result.stdout.strip()}")
             
             branch_result = subprocess.run(["git", "branch", "-a"], capture_output=True, text=True)
-            print(f"DEBUG: Available branches:\n{branch_result.stdout}")
 
             if is_github_actions:
                 # GitHub Actions PR events: compare against target branch
@@ -540,9 +516,8 @@ If the code violates a rule, you must BLOCK it.
                 print(f"Running in GitHub Actions - comparing against target branch: {target_branch}")
                 
                 # Debug: Print relevant env vars
-                print(f"DEBUG: GITHUB_BASE_REF={os.getenv('GITHUB_BASE_REF')}")
-                print(f"DEBUG: GITHUB_HEAD_REF={os.getenv('GITHUB_HEAD_REF')}")
-                print(f"DEBUG: GITHUB_SHA={os.getenv('GITHUB_SHA')}")
+                # Environment variables can be inspected locally if needed:
+                # GITHUB_BASE_REF, GITHUB_HEAD_REF, GITHUB_SHA
 
                 # Fetch the target branch with FULL history (not shallow) to find merge base
                 # This is critical - shallow fetch breaks merge-base detection
@@ -558,7 +533,6 @@ If the code violates a rule, you must BLOCK it.
                         capture_output=True, 
                         text=True
                     )
-                print(f"DEBUG: Fetch result: {fetch_result.returncode}, stderr: {fetch_result.stderr}")
                 
                 # Try to get the merge base for accurate comparison
                 merge_base_result = subprocess.run(
@@ -569,38 +543,25 @@ If the code violates a rule, you must BLOCK it.
                 
                 if merge_base_result.returncode == 0:
                     merge_base = merge_base_result.stdout.strip()
-                    print(f"DEBUG: Merge base: {merge_base}")
                     cmd = ["git", "diff", merge_base, "HEAD"]
                 else:
-                    print(f"DEBUG: Could not find merge base. Error: {merge_base_result.stderr}")
                     # Fallback: Direct two-dot diff (not three-dot which requires merge base)
-                    print(f"DEBUG: Falling back to direct diff: origin/{target_branch}..HEAD")
                     cmd = ["git", "diff", f"origin/{target_branch}", "HEAD"]
             else:
                 # Local testing: fetch and compare against origin/main
                 print("Running locally - fetching origin/main...")
                 subprocess.run(["git", "fetch", "origin", "main"], check=False, capture_output=True)
                 cmd = ["git", "diff", "origin/main", "HEAD"]
-
-            print(f"DEBUG: Running diff command: {' '.join(cmd)}")
-            
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True
             )
-
-            print(f"DEBUG: Diff command return code: {result.returncode}")
-            if result.stderr:
-                print(f"DEBUG: Diff stderr: {result.stderr}")
-
             if result.returncode == 0:
                 diff_content = result.stdout.strip()
                 if diff_content:
                     print(f"SUCCESS: Found diff ({len(diff_content)} chars)")
                     # Print first few lines of diff for debugging
-                    diff_lines = diff_content.split('\n')[:20]
-                    print(f"DEBUG: First 20 lines of diff:\n" + '\n'.join(diff_lines))
                     return diff_content
                 else:
                     print("INFO: No diff found (no changes)")
@@ -610,7 +571,6 @@ If the code violates a rule, you must BLOCK it.
                         capture_output=True,
                         text=True
                     )
-                    print(f"DEBUG: Changed files: {files_result.stdout}")
                     return ""
             else:
                 print(f"WARNING: Git diff command failed: {result.stderr}")
@@ -932,8 +892,6 @@ If the code violates a rule, you must BLOCK it.
 
         except Exception as e:
             print(f"ERROR: Failed to extract governance rules: {e}")
-            import traceback
-            traceback.print_exc()
             return None
 
 
@@ -960,7 +918,6 @@ If the code violates a rule, you must BLOCK it.
         forbidden_libs = governance_rules.get('FORBIDDEN_LIBRARIES', '')
         if forbidden_libs and forbidden_libs != 'Unknown/Detect from Codebase':
             forbidden_list = [lib.strip().lower() for lib in forbidden_libs.replace(',', ';').split(';') if lib.strip()]
-            print(f"DEBUG: Checking for forbidden libraries: {forbidden_list}")
 
             # Normalize forbidden library names for better detection
             # Map common aliases to their detection patterns
@@ -970,16 +927,6 @@ If the code violates a rule, you must BLOCK it.
                 'jquery': ['\\$\\s*\\(', 'jquery', '\\$\\.ajax', '\\$\\.get', '\\$\\.post'],  # $( or jQuery patterns
                 'axios': ['axios\\.', 'axios\\s*\\(', 'from\\s+[\'"]axios[\'"]', 'require\\s*\\([\'"]axios[\'"]\\)'],
             }
-            
-            # DEBUG: Print the full context to see what we're checking against
-            print(f"DEBUG: Full context length: {len(full_context)} chars")
-            print(f"DEBUG: Full context preview (first 500 chars):\n{full_context[:500]}")
-            
-            # Also print lines that start with + (added lines in diff)
-            added_lines = [line for line in full_context.split('\n') if line.startswith('+')]
-            print(f"DEBUG: Found {len(added_lines)} added lines in diff:")
-            for line in added_lines[:10]:  # Show first 10 added lines
-                print(f"  {line}")
 
             # 1. Check full context (includes both git diff and file contents) for forbidden dependencies
             for lib in forbidden_list:
@@ -998,8 +945,6 @@ If the code violates a rule, you must BLOCK it.
                         f'import\\s+{re.escape(lib_lower)}',  # import statement
                     ]
                 
-                print(f"DEBUG: Checking lib '{lib_lower}' with patterns: {detection_patterns}")
-                
                 # Check for actual usage patterns in the diff (look for added lines with +)
                 for pattern in detection_patterns:
                     # Look for the pattern in added lines (git diff format: lines starting with +)
@@ -1007,8 +952,7 @@ If the code violates a rule, you must BLOCK it.
                     match = re.search(added_line_pattern, full_context, re.IGNORECASE | re.MULTILINE)
                     if match:
                         violations.append(f"BLOCKED: Forbidden library/API usage detected: {lib}")
-                        print(f"VIOLATION: Found forbidden '{lib}' usage in added code (pattern: {pattern})")
-                        print(f"VIOLATION: Matched text: {match.group()}")
+                        print(f"VIOLATION: Found forbidden '{lib}' usage in added code")
                         found_violation = True
                         break
                 
@@ -1117,7 +1061,6 @@ If the code violates a rule, you must BLOCK it.
             data = response.json()
             teams = data.get("data", {}).get("teams", {}).get("nodes", [])
             if teams:
-                print(f"DEBUG: Found Linear Team: {teams[0]['name']} ({teams[0]['id']})")
                 return teams[0]['id']
             else:
                 print("⚠️ No teams found in Linear.")
