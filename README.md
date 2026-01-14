@@ -1,19 +1,16 @@
 
 
-# 🚀 IronSpec (Beta v1.0)
+# 🚀 IronSpec: Blocks risky AI changes before they hit main
 
-IronSpec is an intelligent context bridge that connects your development environment (Cursor) directly to your "Source of Truth" (Notion) and data layer (Supabase).
+IronSpec is a GitHub Action that reviews pull requests (including AI-generated changes) against your specs and governance rules, then blocks risky code before it lands.
 
-It eliminates context switching by granting your AI agent real-time access to technical specifications, roadmaps, and architectural governance. With IronSpec, the AI doesn't just write code—it follows your project's "Constitution."
+It catches things like unsafe `fetch` calls, forbidden libraries, and architecture violations, while still letting you override with a clear audit trail when needed.
 
 ---
 
-## ⚡ Dual-Track Installation (Choose Your Path)
+## ⚡ Quickstart: GitHub Action
 
-IronSpec supports two installation methods based on your security and compliance requirements.
-
-### Option A: Quick Start (Marketplace Installation)
-*For small teams and individual developers*
+Add IronSpec to your repository to validate every pull request:
 
 ```yaml
 steps:
@@ -23,21 +20,36 @@ steps:
   - name: 🛡️ Run IronSpec Governance
     uses: idanSarfati/IronSpec@v1.0.0
     with:
-      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-      linear_api_key: ${{ secrets.LINEAR_API_KEY }}
-      notion_api_key: ${{ secrets.NOTION_API_KEY }}
-      # Optional: linear_team_id if needed
+      linear_api_key: ${{ secrets.LINEAR_API_KEY }}   # Required: for logging and governance events
+      notion_api_key: ${{ secrets.NOTION_API_KEY }}   # Required: for loading specs/governance rules
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}   # Optional: CI analysis
+      openai_api_key: ${{ secrets.OPENAI_API_KEY }}   # Optional: rule extraction/normalization
+      github_token: ${{ secrets.GITHUB_TOKEN }}       # Usually the default GITHUB_TOKEN
 ```
 
-**Benefits:**
-- ⚡ Zero setup time
-- 🔄 Automatic updates
-- 🛡️ Marketplace security guarantees
+### Required secrets
+
+| GitHub secret        | Input name       | What it’s for                                           | Required? |
+| -------------------- | ---------------- | -------------------------------------------------------- | --------- |
+| `LINEAR_API_KEY`     | `linear_api_key` | Create/log governance events and audit trails           | Yes       |
+| `NOTION_API_KEY`     | `notion_api_key` | Read specs/governance rules from Notion                 | Yes       |
+| `GEMINI_API_KEY`     | `gemini_api_key` | Analyze PR diffs in CI for violations                   | Recommended |
+| `OPENAI_API_KEY`     | `openai_api_key` | Extract and normalize governance rules                   | Optional  |
+| `GITHUB_TOKEN`       | `github_token`   | GitHub API access for comments and repo metadata        | Auto-provided (pass through) |
 
 ---
 
-### Option B: Enterprise Installation (Fork-to-Own)
-*For SOC2-compliant enterprises and security-conscious teams*
+## ⚡ Installation Modes (Choose Your Path)
+
+IronSpec supports two installation methods depending on how much control you want.
+
+### Option A: Simple Installation (GitHub Marketplace)
+*For most teams and individual developers*
+
+Use the Quickstart workflow above or install from the GitHub Marketplace to get up and running in minutes.
+
+### Option B: Advanced / Self-Hosted Installation (Fork-to-Own)
+*For security-conscious teams who want full control over the stack*
 
 #### Step 1: Fork & Audit
 
@@ -71,7 +83,7 @@ python -c "from src.utils.health import run_health_check; run_health_check()"
 python install_script.py
 ```
 
-**Enterprise Benefits:**
+**Advanced benefits:**
 - 🔍 **Full Code Audit**: Review every line before deployment
 - 🛡️ **Supply Chain Security**: Dependencies pinned with SHA256 hashes
 - 🔒 **Air-Gapped Ready**: No external dependencies required
@@ -96,12 +108,12 @@ IronSpec communicates only with declared APIs:
 - **OpenAI/Gemini API**: AI-powered code analysis (logic metadata only)
 - **Git Operations**: Local subprocess calls for code analysis
 
-### Enterprise Security
-For SOC2-compliant deployments, use Option B (Fork-to-Own) installation:
+### Security & Self-Hosting
+For stricter environments, you can run IronSpec fully under your control:
 - Run `./audit_check.sh` to verify network boundaries
 - Audit all dependencies in `requirements.txt`
-- Review source code for security compliance
-- Self-host if required for air-gapped environments
+- Review source code for your own security/compliance requirements
+- Self-host if required for air-gapped or regulated environments
 
 ---
 
@@ -226,9 +238,8 @@ Run our built-in audit tools to verify security compliance:
 python -c "from src.utils.health import run_health_check; run_health_check()"
 ```
 
-### Enterprise Compliance
-- **SOC2 Ready**: Designed for SOC2 Type II compliance
-- **Supply Chain Security**: All dependencies pinned with SHA256 hashes
+### Security & Compliance
+- **Supply Chain Security**: Dependencies can be audited and pinned
 - **Code Transparency**: 100% open source with no obfuscation
 - **Audit Trail**: Built-in governance logging and override mechanisms
 
@@ -355,5 +366,5 @@ If the system ignores your context or behaves unexpectedly, we have a built-in l
 
 ## 🛡 License
 
-Internal Use Only - IronSpec Proprietary.
+IronSpec is open source under the MIT License. See `LICENSE` for details.
 

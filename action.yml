@@ -1,5 +1,5 @@
 name: 'IronSpec: Governance Guard'
-description: 'The "Iron Dome" for AI-Native Dev Shops.'
+description: 'Blocks risky AI-generated changes and policy violations in pull requests using your specs and governance rules.'
 inputs:
   gemini_api_key:
     description: 'Gemini API Key'
